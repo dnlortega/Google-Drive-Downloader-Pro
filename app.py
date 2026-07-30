@@ -50,9 +50,8 @@ class App(ctk.CTk):
         self.folder_btn = ctk.CTkButton(self.folder_frame, text="Procurar Pasta", command=self.escolher_pasta, width=120)
         self.folder_btn.grid(row=0, column=2, padx=0)
         
-        self.multi_download_var = ctk.BooleanVar(value=True)
-        self.multi_download_switch = ctk.CTkSwitch(self.folder_frame, text="Multi (4x)", variable=self.multi_download_var)
-        self.multi_download_switch.grid(row=0, column=3, padx=(15, 0))
+        self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️ Opções", command=self.abrir_configuracoes, width=100, fg_color="#6c757d", hover_color="#5a6268")
+        self.settings_btn.grid(row=0, column=3, padx=(15, 0))
 
         # Input Frame (URL & Analyze)
         self.input_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -103,6 +102,60 @@ class App(ctk.CTk):
         self.lock = threading.Lock()
         self.archived_count = 0
         self.log_entries = []
+        
+        # Variáveis de Configuração
+        self.max_workers = 4
+        self.gerar_relatorio_ativo = ctk.BooleanVar(value=True)
+        self.settings_window = None
+
+    def abrir_configuracoes(self):
+        if self.settings_window is not None and self.settings_window.winfo_exists():
+            self.settings_window.focus()
+            return
+            
+        self.settings_window = ctk.CTkToplevel(self)
+        self.settings_window.title("⚙️ Configurações")
+        self.settings_window.geometry("400x350")
+        self.settings_window.attributes("-topmost", True)
+        self.settings_window.resizable(False, False)
+        
+        # Tema
+        lbl_tema = ctk.CTkLabel(self.settings_window, text="Modo Escuro:", font=ctk.CTkFont(weight="bold"))
+        lbl_tema.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="w")
+        
+        self.theme_switch = ctk.CTkSwitch(self.settings_window, text="", command=self.toggle_theme)
+        self.theme_switch.grid(row=0, column=1, padx=20, pady=(20, 10), sticky="e")
+        if ctk.get_appearance_mode() == "Dark":
+            self.theme_switch.select()
+            
+        # Relatório TXT
+        lbl_relat = ctk.CTkLabel(self.settings_window, text="Gerar Relatório TXT:", font=ctk.CTkFont(weight="bold"))
+        lbl_relat.grid(row=1, column=0, padx=20, pady=15, sticky="w")
+        
+        self.report_switch = ctk.CTkSwitch(self.settings_window, text="", variable=self.gerar_relatorio_ativo)
+        self.report_switch.grid(row=1, column=1, padx=20, pady=15, sticky="e")
+            
+        # Slider de Threads
+        lbl_simult = ctk.CTkLabel(self.settings_window, text="Downloads Simultâneos (1 a 10):", font=ctk.CTkFont(weight="bold"))
+        lbl_simult.grid(row=2, column=0, padx=20, pady=(15, 5), sticky="w", columnspan=2)
+        
+        self.simult_slider = ctk.CTkSlider(self.settings_window, from_=1, to=10, number_of_steps=9, command=self.update_simult_label)
+        self.simult_slider.grid(row=3, column=0, padx=20, pady=5, sticky="ew", columnspan=2)
+        self.simult_slider.set(self.max_workers)
+        
+        self.simult_label = ctk.CTkLabel(self.settings_window, text=f"{self.max_workers} arquivos por vez")
+        self.simult_label.grid(row=4, column=0, padx=20, pady=(0, 20), columnspan=2)
+
+    def toggle_theme(self):
+        if self.theme_switch.get():
+            ctk.set_appearance_mode("Dark")
+        else:
+            ctk.set_appearance_mode("Light")
+            
+    def update_simult_label(self, value):
+        val = int(value)
+        self.simult_label.configure(text=f"{val} arquivo{'s' if val > 1 else ''} por vez")
+        self.max_workers = val
 
     def carregar_historico(self):
         if os.path.exists(HISTORY_FILE):
@@ -294,6 +347,9 @@ class App(ctk.CTk):
             self.after(0, lambda: self.progress_label.configure(text=f"Progresso Total: {self.archived_count} / {len(self.arquivos_para_baixar)}"))
 
     def gerar_relatorio(self):
+        if not self.gerar_relatorio_ativo.get():
+            return
+            
         filepath = os.path.join(self.pasta_destino, "relatorio_downloads.txt")
         try:
             with open(filepath, "w", encoding="utf-8") as f:
@@ -305,8 +361,7 @@ class App(ctk.CTk):
             pass
 
     def download_files(self):
-        workers = 4 if self.multi_download_var.get() else 1
-        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [executor.submit(self.download_worker, arg) for arg in self.arquivos_para_baixar]
             concurrent.futures.wait(futures)
             
