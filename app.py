@@ -117,6 +117,9 @@ class App(ctk.CTk):
                 self.update_info("⚠️ Nenhum arquivo encontrado na pasta especificada.\nVerifique se o link está correto e é público.")
                 self.analyze_button.configure(state="normal")
             else:
+                # Ordena os arquivos pelo nome em ordem alfabética
+                self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', ''))
+                
                 total = len(self.arquivos_para_baixar)
                 self.update_info(f"✅ Análise Concluída com Sucesso!\n\n📸 Total de arquivos encontrados: {total}\n📁 Pasta de destino: {self.pasta_destino}")
                 self.analyze_button.configure(state="normal")
