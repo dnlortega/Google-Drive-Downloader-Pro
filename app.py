@@ -191,6 +191,15 @@ class App(ctk.CTk):
             self.last_time = time.time()
             self.last_bytes = 0
             
+            # Verifica se o arquivo já foi baixado (existe e não está vazio)
+            if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+                self.progress_file_label.configure(text=f"↳ Arquivo já existe, pulando...")
+                self.progress_file_bar.set(1.0)
+                progresso_total = (i + 1) / total
+                self.progress_bar.set(progresso_total)
+                time.sleep(0.1) # Pausa rápida para visualização
+                continue
+            
             try:
                 gdown.download(
                     id=arquivo.id, 
