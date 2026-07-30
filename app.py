@@ -21,7 +21,7 @@ class App(ctk.CTk):
 
         self.title("Google Drive Downloader Pro")
         self.geometry("850x800")
-        self.resizable(False, False)
+        self.resizable(True, True)
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(6, weight=1) # Scrollable frame
