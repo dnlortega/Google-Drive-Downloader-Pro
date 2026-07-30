@@ -1,85 +1,131 @@
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import filedialog
 import threading
 import gdown
 import os
 import sys
 import time
+import json
+import concurrent.futures
+from datetime import datetime
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
+
+HISTORY_FILE = "history.json"
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         self.title("Google Drive Downloader Pro")
-        self.geometry("800x750")
+        self.geometry("850x800")
         self.resizable(False, False)
-
+        
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(5, weight=1) # The scrollable frame will expand
+        self.grid_rowconfigure(6, weight=1) # Scrollable frame
 
-        # 0: Título
-        self.title_label = ctk.CTkLabel(self, text="🚀 Google Drive Downloader", font=ctk.CTkFont(size=26, weight="bold"))
+        # Título
+        self.title_label = ctk.CTkLabel(self, text="🚀 Google Drive Downloader Pro", font=ctk.CTkFont(size=26, weight="bold"))
         self.title_label.grid(row=0, column=0, padx=20, pady=(20, 5))
         
-        # 1: Subtítulo
-        self.subtitle_label = ctk.CTkLabel(self, text="Baixe pastas completas, acompanhe o progresso e abra os arquivos diretamente.", 
-                                           font=ctk.CTkFont(size=13, slant="italic"), text_color="gray")
-        self.subtitle_label.grid(row=1, column=0, padx=20, pady=(0, 20))
+        self.subtitle_label = ctk.CTkLabel(self, text="Multithreading, Histórico e Gerenciamento de Downloads.", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray")
+        self.subtitle_label.grid(row=1, column=0, padx=20, pady=(0, 15))
 
-        # 2: Input da URL e Botões
+        # Folder Selection Frame
+        self.folder_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.folder_frame.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.folder_frame.grid_columnconfigure(1, weight=1)
+
+        self.pasta_destino = os.path.expanduser("~/Downloads/Fotos_Drive")
+        
+        self.folder_label = ctk.CTkLabel(self.folder_frame, text="Destino:", font=ctk.CTkFont(weight="bold"))
+        self.folder_label.grid(row=0, column=0, padx=(0, 5), sticky="w")
+        
+        self.folder_path_var = ctk.StringVar(value=self.pasta_destino)
+        self.folder_path_label = ctk.CTkLabel(self.folder_frame, textvariable=self.folder_path_var, text_color="gray", anchor="w")
+        self.folder_path_label.grid(row=0, column=1, padx=5, sticky="ew")
+        
+        self.folder_btn = ctk.CTkButton(self.folder_frame, text="Procurar Pasta", command=self.escolher_pasta, width=120)
+        self.folder_btn.grid(row=0, column=2, padx=0)
+
+        # Input Frame (URL & Analyze)
         self.input_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.input_frame.grid(row=2, column=0, padx=20, pady=0, sticky="ew")
+        self.input_frame.grid(row=3, column=0, padx=20, pady=0, sticky="ew")
         self.input_frame.grid_columnconfigure(0, weight=1)
         
-        self.url_entry = ctk.CTkEntry(self.input_frame, placeholder_text="🔗 Insira o link público da pasta...", height=40)
+        self.historico = self.carregar_historico()
+        self.url_entry = ctk.CTkComboBox(self.input_frame, values=self.historico, height=40)
         self.url_entry.grid(row=0, column=0, padx=(0, 10), pady=0, sticky="ew")
+        self.url_entry.set(self.historico[0] if self.historico else "")
 
         self.analyze_button = ctk.CTkButton(self.input_frame, text="🔍 Analisar", command=self.analyze_link_thread, width=120, height=40, font=ctk.CTkFont(weight="bold"))
         self.analyze_button.grid(row=0, column=1, padx=0, pady=0)
         
-        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️ Iniciar Download", command=self.download_files_thread, width=150, height=40, state="disabled", fg_color="#28a745", hover_color="#218838", font=ctk.CTkFont(weight="bold"))
+        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️ Iniciar Download", command=self.toggle_download, width=150, height=40, state="disabled", fg_color="#28a745", hover_color="#218838", font=ctk.CTkFont(weight="bold"))
         self.download_button.grid(row=0, column=2, padx=(10, 0), pady=0)
 
-        # 3: Info Box Minimalista
-        self.info_label = ctk.CTkLabel(self, text="Bem-vindo! Cole o link acima para começar.", font=ctk.CTkFont(size=14))
-        self.info_label.grid(row=3, column=0, padx=20, pady=15)
+        # Info Label
+        self.info_label = ctk.CTkLabel(self, text="Bem-vindo! Selecione o destino e cole o link para começar.", font=ctk.CTkFont(size=14))
+        self.info_label.grid(row=4, column=0, padx=20, pady=10)
 
-        # 4: Abrir Pasta (Global)
+        # Open Folder Button
         self.open_folder_btn = ctk.CTkButton(self, text="📁 Abrir Pasta de Destino", command=self.abrir_pasta, fg_color="#6c757d", hover_color="#5a6268")
-        self.open_folder_btn.grid(row=4, column=0, padx=20, pady=(0, 10))
-        self.open_folder_btn.grid_remove() # Oculta até ter a pasta
+        self.open_folder_btn.grid(row=5, column=0, padx=20, pady=(0, 10))
+        self.open_folder_btn.grid_remove() 
 
-        # 5: Scrollable Frame para os arquivos
-        self.file_list_frame = ctk.CTkScrollableFrame(self, width=700, height=300)
-        self.file_list_frame.grid(row=5, column=0, padx=20, pady=(0, 15), sticky="nsew")
+        # Scrollable Frame
+        self.file_list_frame = ctk.CTkScrollableFrame(self, width=750, height=350)
+        self.file_list_frame.grid(row=6, column=0, padx=20, pady=(0, 15), sticky="nsew")
 
-        # 6 & 7 & 8 & 9: Progress Bars
+        # Global Progress
         self.progress_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.progress_frame.grid(row=6, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.progress_frame.grid(row=7, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.progress_frame.grid_columnconfigure(0, weight=1)
 
-        self.progress_label = ctk.CTkLabel(self.progress_frame, text="Progresso Total: 0%", font=ctk.CTkFont(size=12, weight="bold"))
-        self.progress_label.grid(row=0, column=0, pady=(0, 2), sticky="w")
-        self.progress_bar = ctk.CTkProgressBar(self.progress_frame, height=12)
+        self.progress_label = ctk.CTkLabel(self.progress_frame, text="Progresso Total: 0%", font=ctk.CTkFont(size=13, weight="bold"))
+        self.progress_label.grid(row=0, column=0, pady=(0, 5), sticky="w")
+        self.progress_bar = ctk.CTkProgressBar(self.progress_frame, height=14)
         self.progress_bar.set(0)
-        self.progress_bar.grid(row=1, column=0, pady=(0, 10), sticky="ew")
-
-        self.progress_file_label = ctk.CTkLabel(self.progress_frame, text="Arquivo atual: Aguardando...", font=ctk.CTkFont(size=12))
-        self.progress_file_label.grid(row=2, column=0, pady=(0, 2), sticky="w")
-        self.progress_file_bar = ctk.CTkProgressBar(self.progress_frame, height=8, progress_color="#28a745")
-        self.progress_file_bar.set(0)
-        self.progress_file_bar.grid(row=3, column=0, pady=(0, 0), sticky="ew")
-
+        self.progress_bar.grid(row=1, column=0, pady=(0, 5), sticky="ew")
         self.progress_frame.grid_remove()
 
+        # Variables
         self.arquivos_para_baixar = []
-        self.pasta_destino = os.path.expanduser("~/Downloads/Fotos_Drive")
-        
-        self.last_time = 0
-        self.last_bytes = 0
+        self.file_labels = {} 
+        self.is_downloading = False
+        self.cancel_event = threading.Event()
+        self.lock = threading.Lock()
+        self.archived_count = 0
+        self.log_entries = []
+
+    def carregar_historico(self):
+        if os.path.exists(HISTORY_FILE):
+            try:
+                with open(HISTORY_FILE, "r") as f:
+                    return json.load(f)
+            except:
+                pass
+        return []
+
+    def salvar_historico(self, url):
+        if url in self.historico:
+            self.historico.remove(url)
+        self.historico.insert(0, url)
+        self.historico = self.historico[:5] # keep last 5
+        self.url_entry.configure(values=self.historico)
+        try:
+            with open(HISTORY_FILE, "w") as f:
+                json.dump(self.historico, f)
+        except:
+            pass
+
+    def escolher_pasta(self):
+        folder = filedialog.askdirectory(initialdir=self.pasta_destino)
+        if folder:
+            self.pasta_destino = folder
+            self.folder_path_var.set(self.pasta_destino)
 
     def abrir_pasta(self):
         if os.path.exists(self.pasta_destino):
@@ -88,18 +134,17 @@ class App(ctk.CTk):
     def analyze_link_thread(self):
         url = self.url_entry.get().strip()
         if not url:
-            self.info_label.configure(text="❌ URL inválida. Por favor, insira um link válido do Google Drive.", text_color="#dc3545")
+            self.info_label.configure(text="❌ URL inválida.", text_color="#dc3545")
             return
             
         self.analyze_button.configure(state="disabled")
         self.download_button.configure(state="disabled")
         self.info_label.configure(text="🔍 Analisando link e buscando arquivos no servidor...\nPor favor, aguarde.", text_color="white")
-        
         self.progress_frame.grid_remove()
         
-        # Limpar a lista visual de arquivos
         for widget in self.file_list_frame.winfo_children():
             widget.destroy()
+        self.file_labels.clear()
             
         thread = threading.Thread(target=self.analyze_link, args=(url,))
         thread.start()
@@ -107,129 +152,148 @@ class App(ctk.CTk):
     def analyze_link(self, url):
         os.makedirs(self.pasta_destino, exist_ok=True)
         try:
-            self.arquivos_para_baixar = gdown.download_folder(
-                url, 
-                output=self.pasta_destino, 
-                quiet=True, 
-                skip_download=True
-            )
-            
+            self.arquivos_para_baixar = gdown.download_folder(url, output=self.pasta_destino, quiet=True, skip_download=True)
             if not self.arquivos_para_baixar:
-                self.after(0, lambda: self.info_label.configure(text="⚠️ Nenhum arquivo encontrado na pasta especificada.\nVerifique se o link está correto e é público.", text_color="#ffc107"))
+                self.after(0, lambda: self.info_label.configure(text="⚠️ Nenhum arquivo encontrado.", text_color="#ffc107"))
                 self.after(0, lambda: self.analyze_button.configure(state="normal"))
             else:
+                self.salvar_historico(url)
                 self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', ''))
-                total = len(self.arquivos_para_baixar)
                 
-                msg = f"✅ Análise Concluída! {total} arquivos encontrados.\nPasta: {self.pasta_destino}"
+                # Setup rows
+                for i, arquivo in enumerate(self.arquivos_para_baixar):
+                    nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
+                    self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path)
+                
+                total = len(self.arquivos_para_baixar)
+                msg = f"✅ Análise Concluída! {total} arquivos encontrados."
                 self.after(0, lambda: self.info_label.configure(text=msg, text_color="#28a745"))
                 self.after(0, lambda: self.analyze_button.configure(state="normal"))
-                self.after(0, lambda: self.download_button.configure(state="normal"))
+                self.after(0, lambda: self.download_button.configure(state="normal", text="⬇️ Iniciar Download", fg_color="#28a745", hover_color="#218838"))
                 self.after(0, lambda: self.open_folder_btn.grid())
                 
         except Exception as e:
-            self.after(0, lambda: self.info_label.configure(text=f"❌ Erro ao acessar a pasta do Google Drive:\n{e}", text_color="#dc3545"))
+            self.after(0, lambda: self.info_label.configure(text=f"❌ Erro:\n{e}", text_color="#dc3545"))
             self.after(0, lambda: self.analyze_button.configure(state="normal"))
 
-    def download_files_thread(self):
+    def add_file_row(self, file_id, filename, filepath):
+        row_frame = ctk.CTkFrame(self.file_list_frame, fg_color="#333333")
+        row_frame.pack(fill="x", padx=5, pady=2)
+        
+        status_lbl = ctk.CTkLabel(row_frame, text="⏳ Aguardando", font=ctk.CTkFont(size=12, weight="bold"), width=100, anchor="w")
+        status_lbl.pack(side="left", padx=10, pady=5)
+        
+        name_lbl = ctk.CTkLabel(row_frame, text=filename, font=ctk.CTkFont(size=12))
+        name_lbl.pack(side="left", padx=10, pady=5)
+        
+        btn = ctk.CTkButton(row_frame, text="Abrir", width=60, height=24, fg_color="#007bff", hover_color="#0056b3",
+                            command=lambda: os.startfile(filepath) if os.path.exists(filepath) else None)
+        btn.pack(side="right", padx=10, pady=5)
+        
+        self.file_labels[file_id] = (status_lbl, row_frame, btn)
+
+    def toggle_download(self):
+        if not self.is_downloading:
+            self.start_download()
+        else:
+            self.cancel_download()
+
+    def start_download(self):
+        self.is_downloading = True
+        self.cancel_event.clear()
+        self.log_entries = []
+        self.archived_count = 0
+        
         self.analyze_button.configure(state="disabled")
-        self.download_button.configure(state="disabled")
         self.url_entry.configure(state="disabled")
+        self.folder_btn.configure(state="disabled")
+        
+        self.download_button.configure(text="🛑 Cancelar Download", fg_color="#dc3545", hover_color="#c82333")
         
         self.progress_frame.grid()
         self.progress_bar.set(0)
-        self.progress_file_bar.set(0)
+        self.progress_label.configure(text=f"Progresso Total: 0 / {len(self.arquivos_para_baixar)}")
         
         thread = threading.Thread(target=self.download_files)
         thread.start()
-        
-    def progress_callback(self, bytes_so_far, bytes_total):
-        current_time = time.time()
-        elapsed = current_time - self.last_time
-        
-        if elapsed > 0.2:
-            speed = (bytes_so_far - self.last_bytes) / elapsed if elapsed > 0 else 0
-            self.last_bytes = bytes_so_far
-            self.last_time = current_time
-            
-            if speed > 1024 * 1024:
-                speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
-            else:
-                speed_str = f"{speed / 1024:.1f} KB/s"
-                
-            if bytes_total:
-                eta_seconds = (bytes_total - bytes_so_far) / speed if speed > 0 else 0
-                if eta_seconds > 60:
-                    eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
-                else:
-                    eta_str = f"{int(eta_seconds)}s"
-                    
-                percentage = (bytes_so_far / bytes_total) * 100
-                self.after(0, lambda: self.progress_file_label.configure(text=f"↳ Velocidade: {speed_str} | Tempo restante do arquivo: {eta_str}"))
-                self.after(0, lambda: self.progress_file_bar.set(bytes_so_far / bytes_total))
-            else:
-                self.after(0, lambda: self.progress_file_label.configure(text=f"↳ Velocidade: {speed_str} | Baixando..."))
-                self.after(0, lambda: self.progress_file_bar.set(0))
 
-    def add_file_row(self, filename, filepath, is_skipped=False):
-        row_frame = ctk.CTkFrame(self.file_list_frame, fg_color="#333333" if not is_skipped else "#2d2d2d")
-        row_frame.pack(fill="x", padx=5, pady=2)
+    def cancel_download(self):
+        self.cancel_event.set()
+        self.download_button.configure(state="disabled", text="Cancelando...")
+
+    def atualizar_status(self, file_id, status_text, color, frame_color):
+        if file_id in self.file_labels:
+            lbl, frm, _ = self.file_labels[file_id]
+            lbl.configure(text=status_text, text_color=color)
+            frm.configure(fg_color=frame_color)
+
+    def download_worker(self, arquivo):
+        nome_arquivo = os.path.basename(arquivo.local_path)
         
-        icon = "⏭️" if is_skipped else "✅"
-        lbl = ctk.CTkLabel(row_frame, text=f"{icon} {filename}", font=ctk.CTkFont(size=12))
-        lbl.pack(side="left", padx=10, pady=5)
-        
-        def open_file():
-            if os.path.exists(filepath):
-                os.startfile(filepath)
+        if self.cancel_event.is_set():
+            self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#2d2d2d")
+            return
+            
+        # Check if already exists
+        if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+            self.after(0, self.atualizar_status, arquivo.id, "⏭️ Pulado", "#ffc107", "#2d2d2d")
+            self.log_entries.append(f"PULADO (Já existe): {nome_arquivo}")
+        else:
+            self.after(0, self.atualizar_status, arquivo.id, "🔄 Baixando...", "#17a2b8", "#333333")
+            
+            def custom_progress(bytes_so_far, bytes_total):
+                if self.cancel_event.is_set():
+                    raise Exception("Cancelado pelo usuário")
                 
-        btn = ctk.CTkButton(row_frame, text="Abrir", width=60, height=24, command=open_file, fg_color="#007bff", hover_color="#0056b3")
-        btn.pack(side="right", padx=10, pady=5)
+            try:
+                gdown.download(id=arquivo.id, output=arquivo.local_path, quiet=True, progress=custom_progress)
+                self.after(0, self.atualizar_status, arquivo.id, "✅ Concluído", "#28a745", "#2d2d2d")
+                self.log_entries.append(f"SUCESSO: {nome_arquivo}")
+            except Exception as e:
+                if "Cancelado" in str(e):
+                    self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#2d2d2d")
+                    self.log_entries.append(f"CANCELADO: {nome_arquivo}")
+                else:
+                    self.after(0, self.atualizar_status, arquivo.id, "❌ Falha", "#dc3545", "#2d2d2d")
+                    self.log_entries.append(f"FALHA ({e}): {nome_arquivo}")
+
+        # Update global progress
+        with self.lock:
+            self.archived_count += 1
+            p = self.archived_count / len(self.arquivos_para_baixar)
+            self.after(0, lambda: self.progress_bar.set(p))
+            self.after(0, lambda: self.progress_label.configure(text=f"Progresso Total: {self.archived_count} / {len(self.arquivos_para_baixar)}"))
+
+    def gerar_relatorio(self):
+        filepath = os.path.join(self.pasta_destino, "relatorio_downloads.txt")
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(f"Relatório de Download - {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+                f.write("="*60 + "\n\n")
+                for entry in self.log_entries:
+                    f.write(entry + "\n")
+        except:
+            pass
 
     def download_files(self):
-        total = len(self.arquivos_para_baixar)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(self.download_worker, arg) for arg in self.arquivos_para_baixar]
+            concurrent.futures.wait(futures)
+            
+        self.gerar_relatorio()
+        self.is_downloading = False
         
-        for i, arquivo in enumerate(self.arquivos_para_baixar):
-            nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else "Arquivo"
+        if self.cancel_event.is_set():
+            msg = "🛑 Processo Cancelado."
+            color = "#ffc107"
+        else:
+            msg = "✨ Todos os downloads concluídos!"
+            color = "#28a745"
             
-            self.after(0, lambda i=i, n=nome_arquivo: self.progress_label.configure(text=f"Progresso Total ({i+1}/{total}): Baixando {n}..."))
-            self.after(0, lambda: self.progress_file_label.configure(text="↳ Inicializando download..."))
-            self.after(0, lambda: self.progress_file_bar.set(0))
-            
-            self.last_time = time.time()
-            self.last_bytes = 0
-            
-            # Verifica se já existe
-            is_skipped = False
-            if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                self.after(0, lambda: self.progress_file_label.configure(text=f"↳ Arquivo já existe, pulando..."))
-                self.after(0, lambda: self.progress_file_bar.set(1.0))
-                time.sleep(0.05)
-                is_skipped = True
-            else:
-                try:
-                    gdown.download(
-                        id=arquivo.id, 
-                        output=arquivo.local_path, 
-                        quiet=True, 
-                        progress=self.progress_callback
-                    )
-                except Exception:
-                    pass
-            
-            # Adiciona na lista visual
-            self.after(0, self.add_file_row, nome_arquivo, arquivo.local_path, is_skipped)
-                
-            progresso_total = (i + 1) / total
-            self.after(0, lambda p=progresso_total: self.progress_bar.set(p))
-            
-        self.after(0, lambda: self.progress_label.configure(text=f"✨ Todos os {total} downloads foram concluídos com sucesso!"))
-        self.after(0, lambda: self.progress_file_label.configure(text=""))
-        self.after(0, lambda: self.progress_file_bar.set(1.0))
-        
-        self.after(0, lambda: self.info_label.configure(text=f"✅ Processo finalizado! Todos os arquivos estão na pasta.", text_color="#28a745"))
-        
+        self.after(0, lambda: self.info_label.configure(text=f"{msg}\nRelatório salvo em relatorio_downloads.txt", text_color=color))
+        self.after(0, lambda: self.download_button.configure(state="normal", text="⬇️ Iniciar Download", fg_color="#28a745", hover_color="#218838"))
         self.after(0, lambda: self.url_entry.configure(state="normal"))
+        self.after(0, lambda: self.folder_btn.configure(state="normal"))
         self.after(0, lambda: self.analyze_button.configure(state="normal"))
 
 if __name__ == "__main__":
