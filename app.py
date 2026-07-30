@@ -184,7 +184,7 @@ class App(ctk.CTk):
         row_frame = ctk.CTkFrame(self.file_list_frame, fg_color="#333333")
         row_frame.pack(fill="x", padx=5, pady=2)
         
-        status_lbl = ctk.CTkLabel(row_frame, text="⏳ Aguardando", font=ctk.CTkFont(size=12, weight="bold"), width=100, anchor="w")
+        status_lbl = ctk.CTkLabel(row_frame, text="⏳ Aguardando", font=ctk.CTkFont(size=12, weight="bold"), width=140, anchor="w")
         status_lbl.pack(side="left", padx=10, pady=5)
         
         name_lbl = ctk.CTkLabel(row_frame, text=filename, font=ctk.CTkFont(size=12))
@@ -245,9 +245,34 @@ class App(ctk.CTk):
         else:
             self.after(0, self.atualizar_status, arquivo.id, "🔄 Baixando...", "#17a2b8", "#333333")
             
+            local_state = {'last_time': time.time(), 'last_bytes': 0}
+            
             def custom_progress(bytes_so_far, bytes_total):
                 if self.cancel_event.is_set():
                     raise Exception("Cancelado pelo usuário")
+                    
+                current_time = time.time()
+                elapsed = current_time - local_state['last_time']
+                
+                # Atualizar a velocidade a cada 0.5 segundos
+                if elapsed > 0.5:
+                    speed = (bytes_so_far - local_state['last_bytes']) / elapsed if elapsed > 0 else 0
+                    local_state['last_bytes'] = bytes_so_far
+                    local_state['last_time'] = current_time
+                    
+                    if speed > 1024 * 1024:
+                        speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
+                    else:
+                        speed_str = f"{speed / 1024:.1f} KB/s"
+                        
+                    percentage = (bytes_so_far / bytes_total * 100) if bytes_total else 0
+                    
+                    if percentage > 0:
+                        status_text = f"🔄 {percentage:.0f}% | {speed_str}"
+                    else:
+                        status_text = f"🔄 {speed_str}"
+                        
+                    self.after(0, self.atualizar_status, arquivo.id, status_text, "#17a2b8", "#333333")
                 
             try:
                 gdown.download(id=arquivo.id, output=arquivo.local_path, quiet=True, progress=custom_progress)
