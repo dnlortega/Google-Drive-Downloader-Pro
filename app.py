@@ -97,8 +97,16 @@ class App(ctk.CTk):
         self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="🧹 Limpar Pasta", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=150)
         self.clear_folder_btn.grid(row=0, column=1, padx=10)
 
-        self.file_list_frame = ctk.CTkScrollableFrame(self, height=320)
-        self.file_list_frame.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
+        self.tabview = ctk.CTkTabview(self, height=320)
+        self.tabview.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
+        self.tabview.add("Fila de Download")
+        self.tabview.add("Concluídos")
+        
+        self.queue_frame = ctk.CTkScrollableFrame(self.tabview.tab("Fila de Download"), fg_color="transparent")
+        self.queue_frame.pack(fill="both", expand=True)
+        
+        self.completed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Concluídos"), fg_color="transparent")
+        self.completed_frame.pack(fill="both", expand=True)
 
         # Global Progress
         self.progress_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -244,7 +252,9 @@ class App(ctk.CTk):
         self.info_label.configure(text="🔍 Analisando link e buscando arquivos no servidor...\nPor favor, aguarde.", text_color="white")
         self.progress_frame.grid_remove()
         
-        for widget in self.file_list_frame.winfo_children():
+        for widget in self.queue_frame.winfo_children():
+            widget.destroy()
+        for widget in self.completed_frame.winfo_children():
             widget.destroy()
         self.file_labels.clear()
             
@@ -285,11 +295,12 @@ class App(ctk.CTk):
             self.after(0, lambda: self.info_label.configure(text=f"❌ Erro:\n{e}", text_color="#dc3545"))
             self.after(0, lambda: self.analyze_button.configure(state="normal"))
 
-    def add_file_row(self, file_id, filename, filepath):
-        row_frame = ctk.CTkFrame(self.file_list_frame, fg_color="#333333")
+    def add_file_row(self, file_id, filename, filepath, target_frame=None, initial_status="⏳ Aguardando", initial_color="#ffffff", initial_bg="#333333"):
+        parent = target_frame if target_frame else self.queue_frame
+        row_frame = ctk.CTkFrame(parent, fg_color=initial_bg)
         row_frame.pack(fill="x", padx=5, pady=2)
         
-        status_lbl = ctk.CTkLabel(row_frame, text="⏳ Aguardando", font=ctk.CTkFont(size=12, weight="bold"), width=150, anchor="w")
+        status_lbl = ctk.CTkLabel(row_frame, text=initial_status, text_color=initial_color, font=ctk.CTkFont(size=12, weight="bold"), width=150, anchor="w")
         status_lbl.pack(side="left", padx=10, pady=5)
         
         name_lbl = ctk.CTkLabel(row_frame, text=filename, font=ctk.CTkFont(size=12))
@@ -299,7 +310,7 @@ class App(ctk.CTk):
                             command=lambda: os.startfile(filepath) if os.path.exists(filepath) else None)
         btn.pack(side="right", padx=10, pady=5)
         
-        self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl)
+        self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl, filename, filepath)
 
     def toggle_download(self):
         if not self.is_downloading:
@@ -333,22 +344,27 @@ class App(ctk.CTk):
         self.cancel_event.set()
         self.download_button.configure(state="disabled", text="Cancelando...")
 
-    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False):
+    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False):
         if file_id in self.file_labels:
-            lbl, frm, _, name_lbl = self.file_labels[file_id]
-            lbl.configure(text=status_text, text_color=color)
-            frm.configure(fg_color=frame_color)
-            name_lbl.configure(font=ctk.CTkFont(size=13 if is_highlighted else 12, weight="bold" if is_highlighted else "normal"))
+            lbl, frm, btn, name_lbl, filename, filepath = self.file_labels[file_id]
+            
+            if is_completed:
+                frm.destroy()
+                self.add_file_row(file_id, filename, filepath, target_frame=self.completed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+            else:
+                lbl.configure(text=status_text, text_color=color)
+                frm.configure(fg_color=frame_color)
+                name_lbl.configure(font=ctk.CTkFont(size=13 if is_highlighted else 12, weight="bold" if is_highlighted else "normal"))
 
     def download_worker(self, arquivo):
         nome_arquivo = os.path.basename(arquivo.local_path)
         
         if self.cancel_event.is_set():
-            self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#2d2d2d", False)
+            self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#242424", False, True)
             return
             
         if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-            self.after(0, self.atualizar_status, arquivo.id, "⏭️ Pulado", "#ffc107", "#2d2d2d", False)
+            self.after(0, self.atualizar_status, arquivo.id, "⏭️ Pulado", "#ffc107", "#242424", False, True)
             self.log_entries.append(f"PULADO: {nome_arquivo}")
         else:
             local_state = {'last_time': time.time(), 'last_bytes': 0}
@@ -391,7 +407,7 @@ class App(ctk.CTk):
                     self.after(0, self.atualizar_status, arquivo.id, "🔄 Baixando...", "#00ffff", "#1f538d", True)
                     gdown.download(id=arquivo.id, output=arquivo.local_path, quiet=True, progress=custom_progress)
                     
-                    self.after(0, self.atualizar_status, arquivo.id, "✅ Concluído", "#28a745", "#242424", False)
+                    self.after(0, self.atualizar_status, arquivo.id, "✅ Concluído", "#28a745", "#242424", False, True)
                     self.log_entries.append(f"SUCESSO: {nome_arquivo}")
                     sucesso = True
                     break
@@ -403,10 +419,10 @@ class App(ctk.CTk):
                         
             if not sucesso:
                 if self.cancel_event.is_set():
-                    self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#242424", False)
+                    self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#242424", False, True)
                     self.log_entries.append(f"CANCELADO: {nome_arquivo}")
                 else:
-                    self.after(0, self.atualizar_status, arquivo.id, "❌ Falha", "#dc3545", "#242424", False)
+                    self.after(0, self.atualizar_status, arquivo.id, "❌ Falha", "#dc3545", "#242424", False, True)
                     self.log_entries.append(f"FALHA (Após 3 tentativas): {nome_arquivo}")
 
         with self.lock:
