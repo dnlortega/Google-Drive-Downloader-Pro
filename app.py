@@ -49,6 +49,10 @@ class App(ctk.CTk):
         
         self.folder_btn = ctk.CTkButton(self.folder_frame, text="Procurar Pasta", command=self.escolher_pasta, width=120)
         self.folder_btn.grid(row=0, column=2, padx=0)
+        
+        self.multi_download_var = ctk.BooleanVar(value=True)
+        self.multi_download_switch = ctk.CTkSwitch(self.folder_frame, text="Multi (4x)", variable=self.multi_download_var)
+        self.multi_download_switch.grid(row=0, column=3, padx=(15, 0))
 
         # Input Frame (URL & Analyze)
         self.input_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -276,7 +280,8 @@ class App(ctk.CTk):
             pass
 
     def download_files(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        workers = 4 if self.multi_download_var.get() else 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             futures = [executor.submit(self.download_worker, arg) for arg in self.arquivos_para_baixar]
             concurrent.futures.wait(futures)
             
