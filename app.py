@@ -299,7 +299,7 @@ class App(ctk.CTk):
                             command=lambda: os.startfile(filepath) if os.path.exists(filepath) else None)
         btn.pack(side="right", padx=10, pady=5)
         
-        self.file_labels[file_id] = (status_lbl, row_frame, btn)
+        self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl)
 
     def toggle_download(self):
         if not self.is_downloading:
@@ -333,21 +333,22 @@ class App(ctk.CTk):
         self.cancel_event.set()
         self.download_button.configure(state="disabled", text="Cancelando...")
 
-    def atualizar_status(self, file_id, status_text, color, frame_color):
+    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False):
         if file_id in self.file_labels:
-            lbl, frm, _ = self.file_labels[file_id]
+            lbl, frm, _, name_lbl = self.file_labels[file_id]
             lbl.configure(text=status_text, text_color=color)
             frm.configure(fg_color=frame_color)
+            name_lbl.configure(font=ctk.CTkFont(size=13 if is_highlighted else 12, weight="bold" if is_highlighted else "normal"))
 
     def download_worker(self, arquivo):
         nome_arquivo = os.path.basename(arquivo.local_path)
         
         if self.cancel_event.is_set():
-            self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#2d2d2d")
+            self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#2d2d2d", False)
             return
             
         if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-            self.after(0, self.atualizar_status, arquivo.id, "⏭️ Pulado", "#ffc107", "#2d2d2d")
+            self.after(0, self.atualizar_status, arquivo.id, "⏭️ Pulado", "#ffc107", "#2d2d2d", False)
             self.log_entries.append(f"PULADO: {nome_arquivo}")
         else:
             local_state = {'last_time': time.time(), 'last_bytes': 0}
@@ -374,7 +375,7 @@ class App(ctk.CTk):
                         status_text = f"🔄 {percentage:.0f}% | {speed_str}"
                     else:
                         status_text = f"🔄 {speed_str}"
-                    self.after(0, self.atualizar_status, arquivo.id, status_text, "#17a2b8", "#333333")
+                    self.after(0, self.atualizar_status, arquivo.id, status_text, "#00ffff", "#1f538d", True)
             
             # Auto-Retry System
             max_retries = 3
@@ -384,13 +385,13 @@ class App(ctk.CTk):
                     break
                 try:
                     if tentativa > 0:
-                        self.after(0, self.atualizar_status, arquivo.id, f"⚠️ Tentando ({tentativa+1}/3)", "#ffc107", "#333333")
+                        self.after(0, self.atualizar_status, arquivo.id, f"⚠️ Tentando ({tentativa+1}/3)", "#ffc107", "#1f538d", True)
                         time.sleep(3) 
                         
-                    self.after(0, self.atualizar_status, arquivo.id, "🔄 Baixando...", "#17a2b8", "#333333")
+                    self.after(0, self.atualizar_status, arquivo.id, "🔄 Baixando...", "#00ffff", "#1f538d", True)
                     gdown.download(id=arquivo.id, output=arquivo.local_path, quiet=True, progress=custom_progress)
                     
-                    self.after(0, self.atualizar_status, arquivo.id, "✅ Concluído", "#28a745", "#2d2d2d")
+                    self.after(0, self.atualizar_status, arquivo.id, "✅ Concluído", "#28a745", "#242424", False)
                     self.log_entries.append(f"SUCESSO: {nome_arquivo}")
                     sucesso = True
                     break
@@ -402,10 +403,10 @@ class App(ctk.CTk):
                         
             if not sucesso:
                 if self.cancel_event.is_set():
-                    self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#2d2d2d")
+                    self.after(0, self.atualizar_status, arquivo.id, "🛑 Cancelado", "#dc3545", "#242424", False)
                     self.log_entries.append(f"CANCELADO: {nome_arquivo}")
                 else:
-                    self.after(0, self.atualizar_status, arquivo.id, "❌ Falha", "#dc3545", "#2d2d2d")
+                    self.after(0, self.atualizar_status, arquivo.id, "❌ Falha", "#dc3545", "#242424", False)
                     self.log_entries.append(f"FALHA (Após 3 tentativas): {nome_arquivo}")
 
         with self.lock:
