@@ -103,12 +103,16 @@ class App(ctk.CTk):
         self.tabview.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
         self.tabview.add("Fila de Download")
         self.tabview.add("Concluídos")
+        self.tabview.add("Falhas")
         
         self.queue_frame = ctk.CTkScrollableFrame(self.tabview.tab("Fila de Download"), fg_color="transparent")
         self.queue_frame.pack(fill="both", expand=True)
         
         self.completed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Concluídos"), fg_color="transparent")
         self.completed_frame.pack(fill="both", expand=True)
+        
+        self.failed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Falhas"), fg_color="transparent")
+        self.failed_frame.pack(fill="both", expand=True)
 
         # Global Progress
         self.progress_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -377,13 +381,16 @@ class App(ctk.CTk):
         self.cancel_event.set()
         self.download_button.configure(state="disabled", text="Pausando...")
 
-    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False):
+    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False, is_failed=False):
         if file_id in self.file_labels:
             lbl, frm, btn, name_lbl, filename, filepath = self.file_labels[file_id]
             
             if is_completed:
                 frm.destroy()
                 self.add_file_row(file_id, filename, filepath, target_frame=self.completed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+            elif is_failed:
+                frm.destroy()
+                self.add_file_row(file_id, filename, filepath, target_frame=self.failed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
             else:
                 lbl.configure(text=status_text, text_color=color)
                 frm.configure(fg_color=frame_color)
@@ -472,7 +479,7 @@ class App(ctk.CTk):
                 self.log_entries.append(f"PAUSADO: {nome_arquivo}")
             else:
                 erro_curto = ultimo_erro[:30] + "..." if len(ultimo_erro) > 30 else ultimo_erro
-                self.after(0, self.atualizar_status, arquivo.id, f"❌ Erro: {erro_curto}", "#dc3545", "#242424", False, True)
+                self.after(0, self.atualizar_status, arquivo.id, f"❌ Erro: {erro_curto}", "#dc3545", "#242424", False, False, True)
                 self.log_entries.append(f"FALHA [Motivo: {ultimo_erro}]: {nome_arquivo}")
 
         if sucesso or (not sucesso and not self.cancel_event.is_set()):

@@ -99,13 +99,15 @@ class DriveDownloaderMobile:
         # Tabs de Fila e Concluídos
         self.queue_list = ft.ListView(expand=True, spacing=10, height=250)
         self.completed_list = ft.ListView(expand=True, spacing=10, height=250)
+        self.failed_list = ft.ListView(expand=True, spacing=10, height=250)
         
         self.tabs = ft.Tabs(
             selected_index=0,
             animation_duration=300,
             tabs=[
-                ft.Tab(text="Fila de Download", content=self.queue_list),
+                ft.Tab(text="Fila", content=self.queue_list),
                 ft.Tab(text="Concluídos", content=self.completed_list),
+                ft.Tab(text="Falhas", content=self.failed_list),
             ],
             height=300
         )
@@ -205,6 +207,7 @@ class DriveDownloaderMobile:
         self.info_label.color = ft.colors.WHITE
         self.queue_list.controls.clear()
         self.completed_list.controls.clear()
+        self.failed_list.controls.clear()
         self.file_controls.clear()
         self.page.update()
         
@@ -310,13 +313,16 @@ class DriveDownloaderMobile:
         self.btn_download.text = "Pausando..."
         self.page.update()
 
-    def atualizar_status(self, file_id, status_str, color, is_completed=False):
+    def atualizar_status(self, file_id, status_str, color, is_completed=False, is_failed=False):
         if file_id in self.file_controls:
             status_text, row_frame, name_text, filename, filepath = self.file_controls[file_id]
             
             if is_completed and row_frame in self.queue_list.controls:
                 self.queue_list.controls.remove(row_frame)
                 self.completed_list.controls.append(row_frame)
+            elif is_failed and row_frame in self.queue_list.controls:
+                self.queue_list.controls.remove(row_frame)
+                self.failed_list.controls.append(row_frame)
             
             status_text.value = status_str
             status_text.color = color
@@ -388,7 +394,7 @@ class DriveDownloaderMobile:
                 self.atualizar_status(arquivo.id, "⏸️ Pausado", ft.colors.AMBER)
             else:
                 erro_curto = ultimo_erro[:30] + "..." if len(ultimo_erro) > 30 else ultimo_erro
-                self.atualizar_status(arquivo.id, f"❌ Erro: {erro_curto}", ft.colors.RED)
+                self.atualizar_status(arquivo.id, f"❌ Erro: {erro_curto}", ft.colors.RED, is_completed=False, is_failed=True)
                 self.log_entries.append(f"FALHA [Motivo: {ultimo_erro}]: {nome_arquivo}")
 
         if sucesso or (not sucesso and not self.cancel_event.is_set()):
