@@ -341,8 +341,15 @@ class App(ctk.CTk):
         name_lbl = ctk.CTkLabel(row_frame, text=filename, font=ctk.CTkFont(size=12))
         name_lbl.pack(side="left", padx=10, pady=5)
         
-        btn = ctk.CTkButton(row_frame, text="Abrir", width=60, height=24, fg_color="#007bff", hover_color="#0056b3",
-                            command=lambda: os.startfile(filepath) if os.path.exists(filepath) else None)
+        def abrir_arquivo():
+            if os.path.exists(filepath):
+                os.startfile(filepath)
+            else:
+                import webbrowser
+                webbrowser.open(f"https://drive.google.com/open?id={file_id}")
+                
+        btn = ctk.CTkButton(row_frame, text="Abrir / Ver", width=80, height=24, fg_color="#007bff", hover_color="#0056b3",
+                            command=abrir_arquivo)
         btn.pack(side="right", padx=10, pady=5)
         
         self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl, filename, filepath)

@@ -267,8 +267,22 @@ class DriveDownloaderMobile:
         status_text = ft.Text(initial_status, size=12, weight=ft.FontWeight.BOLD, color=ft.colors.WHITE, width=120)
         name_text = ft.Text(filename, size=12, expand=True)
         
+        def open_file_or_link(e):
+            if os.path.exists(filepath):
+                os.startfile(filepath)
+            else:
+                import webbrowser
+                webbrowser.open(f"https://drive.google.com/open?id={file_id}")
+                
+        btn_open = ft.IconButton(
+            icon=ft.icons.OPEN_IN_NEW, 
+            tooltip="Abrir arquivo local ou no Drive", 
+            icon_color=ft.colors.BLUE_400,
+            on_click=open_file_or_link
+        )
+        
         row_frame = ft.Container(
-            content=ft.Row([status_text, name_text]),
+            content=ft.Row([status_text, name_text, btn_open]),
             padding=10,
             bgcolor=ft.colors.GREY_900,
             border_radius=8
