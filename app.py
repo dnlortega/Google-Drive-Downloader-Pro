@@ -132,6 +132,17 @@ class App(ctk.CTk):
         self.max_workers = 4
         self.gerar_relatorio_ativo = ctk.BooleanVar(value=True)
         self.settings_window = None
+        
+        # Fecha o splash screen do PyInstaller se estiver rodando o executável
+        self.after(200, self.fechar_splash)
+
+    def fechar_splash(self):
+        try:
+            import pyi_splash
+            if pyi_splash.is_alive():
+                pyi_splash.close()
+        except ImportError:
+            pass
 
     def carregar_historico(self):
         if os.path.exists(HISTORY_FILE):
