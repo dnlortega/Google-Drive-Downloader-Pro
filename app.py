@@ -484,6 +484,10 @@ class App(ctk.CTk):
             if self.cancel_event.is_set():
                 self.after(0, self.atualizar_status, arquivo.id, "⏸️ Pausado", "#ffc107", "#242424", False, False)
                 self.log_entries.append(f"PAUSADO: {nome_arquivo}")
+            elif os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+                self.after(0, self.atualizar_status, arquivo.id, "✅ Já existe", "#28a745", "#242424", False, True)
+                self.log_entries.append(f"JÁ EXISTE: {nome_arquivo}")
+                sucesso = True
             else:
                 erro_curto = ultimo_erro[:30] + "..." if len(ultimo_erro) > 30 else ultimo_erro
                 self.after(0, self.atualizar_status, arquivo.id, f"❌ Erro: {erro_curto}", "#dc3545", "#242424", False, False, True)

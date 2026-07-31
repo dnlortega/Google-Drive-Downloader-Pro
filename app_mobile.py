@@ -406,6 +406,10 @@ class DriveDownloaderMobile:
         if not sucesso:
             if self.cancel_event.is_set():
                 self.atualizar_status(arquivo.id, "⏸️ Pausado", ft.colors.AMBER)
+            elif os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+                self.atualizar_status(arquivo.id, "✅ Já existe", ft.colors.GREEN, is_completed=True)
+                self.log_entries.append(f"JÁ EXISTE: {nome_arquivo}")
+                sucesso = True
             else:
                 erro_curto = ultimo_erro[:30] + "..." if len(ultimo_erro) > 30 else ultimo_erro
                 self.atualizar_status(arquivo.id, f"❌ Erro: {erro_curto}", ft.colors.RED, is_completed=False, is_failed=True)
