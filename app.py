@@ -433,6 +433,7 @@ class App(ctk.CTk):
         # Auto-Retry System
         max_retries = 3
         sucesso = False
+        ultimo_erro = "Desconhecido"
         for tentativa in range(max_retries):
             if self.cancel_event.is_set():
                 break
@@ -462,6 +463,7 @@ class App(ctk.CTk):
                 if "Pausado" in str(e):
                     break
                 else:
+                    ultimo_erro = str(e).replace('\n', ' ')
                     continue 
                     
         if not sucesso:
@@ -469,8 +471,9 @@ class App(ctk.CTk):
                 self.after(0, self.atualizar_status, arquivo.id, "⏸️ Pausado", "#ffc107", "#242424", False, False)
                 self.log_entries.append(f"PAUSADO: {nome_arquivo}")
             else:
-                self.after(0, self.atualizar_status, arquivo.id, "❌ Falha", "#dc3545", "#242424", False, True)
-                self.log_entries.append(f"FALHA: {nome_arquivo}")
+                erro_curto = ultimo_erro[:30] + "..." if len(ultimo_erro) > 30 else ultimo_erro
+                self.after(0, self.atualizar_status, arquivo.id, f"❌ Erro: {erro_curto}", "#dc3545", "#242424", False, True)
+                self.log_entries.append(f"FALHA [Motivo: {ultimo_erro}]: {nome_arquivo}")
 
         if sucesso or (not sucesso and not self.cancel_event.is_set()):
             with self.lock:

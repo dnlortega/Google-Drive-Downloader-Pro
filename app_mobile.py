@@ -350,6 +350,7 @@ class DriveDownloaderMobile:
                 self.atualizar_status(arquivo.id, status_text, ft.colors.CYAN)
         
         sucesso = False
+        ultimo_erro = "Desconhecido"
         for tentativa in range(3):
             if self.cancel_event.is_set():
                 break
@@ -379,14 +380,16 @@ class DriveDownloaderMobile:
                 if "Pausado" in str(e):
                     break
                 else:
+                    ultimo_erro = str(e).replace('\n', ' ')
                     continue 
                     
         if not sucesso:
             if self.cancel_event.is_set():
                 self.atualizar_status(arquivo.id, "⏸️ Pausado", ft.colors.AMBER)
             else:
-                self.atualizar_status(arquivo.id, "❌ Falha", ft.colors.RED)
-                self.log_entries.append(f"FALHA: {nome_arquivo}")
+                erro_curto = ultimo_erro[:30] + "..." if len(ultimo_erro) > 30 else ultimo_erro
+                self.atualizar_status(arquivo.id, f"❌ Erro: {erro_curto}", ft.colors.RED)
+                self.log_entries.append(f"FALHA [Motivo: {ultimo_erro}]: {nome_arquivo}")
 
         if sucesso or (not sucesso and not self.cancel_event.is_set()):
             with self.lock:
