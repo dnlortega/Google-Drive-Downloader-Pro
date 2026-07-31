@@ -99,6 +99,7 @@ class DriveDownloaderMobile:
         # Tabs de Fila e Concluídos
         self.queue_list = ft.ListView(expand=True, spacing=10, height=250)
         self.completed_list = ft.ListView(expand=True, spacing=10, height=250)
+        self.exists_list = ft.ListView(expand=True, spacing=10, height=250)
         self.failed_list = ft.ListView(expand=True, spacing=10, height=250)
         
         self.tabs = ft.Tabs(
@@ -107,6 +108,7 @@ class DriveDownloaderMobile:
             tabs=[
                 ft.Tab(text="Fila", content=self.queue_list),
                 ft.Tab(text="Concluídos", content=self.completed_list),
+                ft.Tab(text="Já Existentes", content=self.exists_list),
                 ft.Tab(text="Falhas", content=self.failed_list),
             ],
             height=300
@@ -207,6 +209,7 @@ class DriveDownloaderMobile:
         self.info_label.color = ft.colors.WHITE
         self.queue_list.controls.clear()
         self.completed_list.controls.clear()
+        self.exists_list.controls.clear()
         self.failed_list.controls.clear()
         self.file_controls.clear()
         self.page.update()
@@ -327,13 +330,16 @@ class DriveDownloaderMobile:
         self.btn_download.text = "Pausando..."
         self.page.update()
 
-    def atualizar_status(self, file_id, status_str, color, is_completed=False, is_failed=False):
+    def atualizar_status(self, file_id, status_str, color, is_completed=False, is_failed=False, is_existing=False):
         if file_id in self.file_controls:
             status_text, row_frame, name_text, filename, filepath = self.file_controls[file_id]
             
             if is_completed and row_frame in self.queue_list.controls:
                 self.queue_list.controls.remove(row_frame)
                 self.completed_list.controls.append(row_frame)
+            elif is_existing and row_frame in self.queue_list.controls:
+                self.queue_list.controls.remove(row_frame)
+                self.exists_list.controls.append(row_frame)
             elif is_failed and row_frame in self.queue_list.controls:
                 self.queue_list.controls.remove(row_frame)
                 self.failed_list.controls.append(row_frame)
@@ -407,7 +413,7 @@ class DriveDownloaderMobile:
             if self.cancel_event.is_set():
                 self.atualizar_status(arquivo.id, "⏸️ Pausado", ft.colors.AMBER)
             elif os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                self.atualizar_status(arquivo.id, "✅ Já existe", ft.colors.GREEN, is_completed=True)
+                self.atualizar_status(arquivo.id, "✅ Já existe", ft.colors.GREEN, is_completed=False, is_failed=False, is_existing=True)
                 self.log_entries.append(f"JÁ EXISTE: {nome_arquivo}")
                 sucesso = True
             else:

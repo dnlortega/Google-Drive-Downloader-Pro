@@ -103,6 +103,7 @@ class App(ctk.CTk):
         self.tabview.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
         self.tabview.add("Fila de Download")
         self.tabview.add("Concluídos")
+        self.tabview.add("Já Existentes")
         self.tabview.add("Falhas")
         
         self.queue_frame = ctk.CTkScrollableFrame(self.tabview.tab("Fila de Download"), fg_color="transparent")
@@ -110,6 +111,9 @@ class App(ctk.CTk):
         
         self.completed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Concluídos"), fg_color="transparent")
         self.completed_frame.pack(fill="both", expand=True)
+        
+        self.exists_frame = ctk.CTkScrollableFrame(self.tabview.tab("Já Existentes"), fg_color="transparent")
+        self.exists_frame.pack(fill="both", expand=True)
         
         self.failed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Falhas"), fg_color="transparent")
         self.failed_frame.pack(fill="both", expand=True)
@@ -388,13 +392,16 @@ class App(ctk.CTk):
         self.cancel_event.set()
         self.download_button.configure(state="disabled", text="Pausando...")
 
-    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False, is_failed=False):
+    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False, is_failed=False, is_existing=False):
         if file_id in self.file_labels:
             lbl, frm, btn, name_lbl, filename, filepath = self.file_labels[file_id]
             
             if is_completed:
                 frm.destroy()
                 self.add_file_row(file_id, filename, filepath, target_frame=self.completed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+            elif is_existing:
+                frm.destroy()
+                self.add_file_row(file_id, filename, filepath, target_frame=self.exists_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
             elif is_failed:
                 frm.destroy()
                 self.add_file_row(file_id, filename, filepath, target_frame=self.failed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
@@ -485,7 +492,7 @@ class App(ctk.CTk):
                 self.after(0, self.atualizar_status, arquivo.id, "⏸️ Pausado", "#ffc107", "#242424", False, False)
                 self.log_entries.append(f"PAUSADO: {nome_arquivo}")
             elif os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                self.after(0, self.atualizar_status, arquivo.id, "✅ Já existe", "#28a745", "#242424", False, True)
+                self.after(0, self.atualizar_status, arquivo.id, "✅ Já existe", "#28a745", "#242424", False, False, False, True)
                 self.log_entries.append(f"JÁ EXISTE: {nome_arquivo}")
                 sucesso = True
             else:
