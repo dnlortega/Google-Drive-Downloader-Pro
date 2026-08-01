@@ -99,23 +99,29 @@ class App(ctk.CTk):
         self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="🧹", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=50, font=ctk.CTkFont(size=20))
         self.clear_folder_btn.grid(row=0, column=1, padx=10)
 
+        self.tab_names = {"queue": "Fila de Download", "completed": "Concluídos", "exists": "Já Existentes", "failed": "Falhas"}
+        self.count_queue = 0
+        self.count_completed = 0
+        self.count_exists = 0
+        self.count_failed = 0
+        
         self.tabview = ctk.CTkTabview(self, height=320)
         self.tabview.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
-        self.tabview.add("Fila de Download")
-        self.tabview.add("Concluídos")
-        self.tabview.add("Já Existentes")
-        self.tabview.add("Falhas")
+        self.tabview.add(self.tab_names["queue"])
+        self.tabview.add(self.tab_names["completed"])
+        self.tabview.add(self.tab_names["exists"])
+        self.tabview.add(self.tab_names["failed"])
         
-        self.queue_frame = ctk.CTkScrollableFrame(self.tabview.tab("Fila de Download"), fg_color="transparent")
+        self.queue_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["queue"]), fg_color="transparent")
         self.queue_frame.pack(fill="both", expand=True)
         
-        self.completed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Concluídos"), fg_color="transparent")
+        self.completed_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["completed"]), fg_color="transparent")
         self.completed_frame.pack(fill="both", expand=True)
         
-        self.exists_frame = ctk.CTkScrollableFrame(self.tabview.tab("Já Existentes"), fg_color="transparent")
+        self.exists_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["exists"]), fg_color="transparent")
         self.exists_frame.pack(fill="both", expand=True)
         
-        self.failed_frame = ctk.CTkScrollableFrame(self.tabview.tab("Falhas"), fg_color="transparent")
+        self.failed_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["failed"]), fg_color="transparent")
         self.failed_frame.pack(fill="both", expand=True)
 
         # Global Progress
@@ -125,9 +131,13 @@ class App(ctk.CTk):
 
         self.progress_label = ctk.CTkLabel(self.progress_frame, text="Progresso Total: 0%", font=ctk.CTkFont(size=13, weight="bold"))
         self.progress_label.grid(row=0, column=0, pady=(0, 5), sticky="w")
+        
+        self.global_stats_label = ctk.CTkLabel(self.progress_frame, text="Baixado: 0.0 MB | Velocidade: 0.0 MB/s", font=ctk.CTkFont(size=13, weight="bold"), text_color="#00ffff")
+        self.global_stats_label.grid(row=0, column=1, pady=(0, 5), sticky="e")
+
         self.progress_bar = ctk.CTkProgressBar(self.progress_frame, height=14)
         self.progress_bar.set(0)
-        self.progress_bar.grid(row=1, column=0, pady=(0, 5), sticky="ew")
+        self.progress_bar.grid(row=1, column=0, columnspan=2, pady=(0, 5), sticky="ew")
         self.progress_frame.grid_remove()
 
         # Vars
@@ -138,6 +148,12 @@ class App(ctk.CTk):
         self.lock = threading.Lock()
         self.archived_count = 0
         self.log_entries = []
+        
+        self.total_bytes_downloaded = 0
+        self.last_global_bytes = 0
+        self.last_global_time = time.time()
+        self.ui_rendered = 0
+        self.global_updater_running = False
         
         self.max_workers = 10
         self.gerar_relatorio_ativo = ctk.BooleanVar(value=True)
@@ -321,14 +337,26 @@ class App(ctk.CTk):
                     self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', '').lower() if hasattr(x, 'path') else "", reverse=True)
                 
                 arquivos_pendentes = []
+                self.ui_rendered = 0
                 for i, arquivo in enumerate(self.arquivos_para_baixar):
                     nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
                     
                     if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, self.exists_frame, "✅ Já existe", "#28a745", "#242424")
+                        if self.ui_rendered < 100:
+                            self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, self.exists_frame, "✅ Já existe", "#28a745", "#242424")
+                            self.ui_rendered += 1
+                        self.count_exists += 1
                     else:
                         arquivos_pendentes.append(arquivo)
-                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path)
+                        if self.ui_rendered < 100:
+                            self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path)
+                            self.ui_rendered += 1
+                        self.count_queue += 1
+                        
+                self.after(0, self.update_tabs)
+                
+                if len(self.arquivos_para_baixar) > 100:
+                    self.after(0, self.add_file_row, "aviso", "⚠️ Lista grande: Mostrando os 100 primeiros arquivos.", "", None, "Aviso", "#ffc107", "#242424")
                 
                 self.arquivos_para_baixar = arquivos_pendentes
                 total = len(self.arquivos_para_baixar)
@@ -365,6 +393,48 @@ class App(ctk.CTk):
         
         self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl, filename, filepath)
 
+    def update_tabs(self):
+        new_q = f"Fila ({self.count_queue})"
+        self.tabview.rename(self.tab_names["queue"], new_q)
+        self.tab_names["queue"] = new_q
+        
+        new_c = f"Concluídos ({self.count_completed})"
+        self.tabview.rename(self.tab_names["completed"], new_c)
+        self.tab_names["completed"] = new_c
+        
+        new_e = f"Já Existentes ({self.count_exists})"
+        self.tabview.rename(self.tab_names["exists"], new_e)
+        self.tab_names["exists"] = new_e
+        
+        new_f = f"Falhas ({self.count_failed})"
+        self.tabview.rename(self.tab_names["failed"], new_f)
+        self.tab_names["failed"] = new_f
+
+    def update_global_stats(self):
+        if not self.is_downloading:
+            self.global_updater_running = False
+            return
+            
+        current_time = time.time()
+        elapsed = current_time - self.last_global_time
+        if elapsed >= 1.0:
+            with self.lock:
+                bytes_diff = self.total_bytes_downloaded - self.last_global_bytes
+                speed = bytes_diff / elapsed if elapsed > 0 else 0
+                self.last_global_bytes = self.total_bytes_downloaded
+                self.last_global_time = current_time
+                
+                downloaded_mb = self.total_bytes_downloaded / (1024 * 1024)
+                
+                if speed > 1024 * 1024:
+                    speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
+                else:
+                    speed_str = f"{speed / 1024:.1f} KB/s"
+                    
+                self.global_stats_label.configure(text=f"Baixado: {downloaded_mb:.1f} MB | Velocidade: {speed_str}")
+                
+        self.after(1000, self.update_global_stats)
+
     def toggle_download(self):
         if not self.is_downloading:
             self.start_download()
@@ -392,6 +462,12 @@ class App(ctk.CTk):
         self.progress_frame.grid()
         self.progress_label.configure(text=f"Progresso Total: {self.archived_count} / {len(self.arquivos_para_baixar)}")
         
+        self.last_global_time = time.time()
+        self.last_global_bytes = self.total_bytes_downloaded
+        if not self.global_updater_running:
+            self.global_updater_running = True
+            self.after(1000, self.update_global_stats)
+        
         thread = threading.Thread(target=self.download_files)
         thread.start()
 
@@ -405,13 +481,25 @@ class App(ctk.CTk):
             
             if is_completed:
                 frm.destroy()
-                self.add_file_row(file_id, filename, filepath, target_frame=self.completed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+                if self.ui_rendered < 150: # Evitar redesenhar infinito
+                    self.add_file_row(file_id, filename, filepath, target_frame=self.completed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+                self.count_queue -= 1
+                self.count_completed += 1
+                self.update_tabs()
             elif is_existing:
                 frm.destroy()
-                self.add_file_row(file_id, filename, filepath, target_frame=self.exists_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+                if self.ui_rendered < 150:
+                    self.add_file_row(file_id, filename, filepath, target_frame=self.exists_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+                self.count_queue -= 1
+                self.count_exists += 1
+                self.update_tabs()
             elif is_failed:
                 frm.destroy()
-                self.add_file_row(file_id, filename, filepath, target_frame=self.failed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+                if self.ui_rendered < 150:
+                    self.add_file_row(file_id, filename, filepath, target_frame=self.failed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+                self.count_queue -= 1
+                self.count_failed += 1
+                self.update_tabs()
             else:
                 lbl.configure(text=status_text, text_color=color)
                 frm.configure(fg_color=frame_color)
@@ -432,18 +520,24 @@ class App(ctk.CTk):
             # Apenas um fallback caso pule por já existir (se resume=False)
             pass 
 
-        local_state = {'last_time': time.time(), 'last_bytes': 0}
+        local_state = {'last_time': time.time(), 'last_bytes': 0, 'last_speed_bytes': 0}
         
         def custom_progress(bytes_so_far, bytes_total):
             if self.cancel_event.is_set():
                 raise Exception("Pausado pelo usuário")
                 
+            chunk = bytes_so_far - local_state['last_bytes']
+            if chunk > 0:
+                with self.lock:
+                    self.total_bytes_downloaded += chunk
+                local_state['last_bytes'] = bytes_so_far
+
             current_time = time.time()
             elapsed = current_time - local_state['last_time']
             
             if elapsed > 1.0:
-                speed = (bytes_so_far - local_state['last_bytes']) / elapsed if elapsed > 0 else 0
-                local_state['last_bytes'] = bytes_so_far
+                speed = (bytes_so_far - local_state['last_speed_bytes']) / elapsed if elapsed > 0 else 0
+                local_state['last_speed_bytes'] = bytes_so_far
                 local_state['last_time'] = current_time
                 
                 if speed > 1024 * 1024:

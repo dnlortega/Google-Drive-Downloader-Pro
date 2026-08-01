@@ -126,21 +126,38 @@ class DriveDownloaderMobile:
         self.exists_list = ft.ListView(expand=True, spacing=10, height=250)
         self.failed_list = ft.ListView(expand=True, spacing=10, height=250)
         
+        self.count_queue = 0
+        self.count_completed = 0
+        self.count_exists = 0
+        self.count_failed = 0
+        
+        self.tab_queue = ft.Tab(text="Fila", content=self.queue_list)
+        self.tab_completed = ft.Tab(text="Concluídos", content=self.completed_list)
+        self.tab_exists = ft.Tab(text="Já Existentes", content=self.exists_list)
+        self.tab_failed = ft.Tab(text="Falhas", content=self.failed_list)
+        
         self.tabs = ft.Tabs(
             selected_index=0,
             animation_duration=300,
             tabs=[
-                ft.Tab(text="Fila", content=self.queue_list),
-                ft.Tab(text="Concluídos", content=self.completed_list),
-                ft.Tab(text="Já Existentes", content=self.exists_list),
-                ft.Tab(text="Falhas", content=self.failed_list),
+                self.tab_queue,
+                self.tab_completed,
+                self.tab_exists,
+                self.tab_failed
             ],
             height=300
         )
         
         # Progresso Global
         self.progress_bar = ft.ProgressBar(value=0, visible=False)
-        self.progress_text = ft.Text("Progresso: 0%", visible=False, weight=ft.FontWeight.BOLD)
+        self.progress_text = ft.Text("Progresso: 0 / 0", visible=False, weight=ft.FontWeight.BOLD)
+        self.global_stats_text = ft.Text("Baixado: 0.0 MB | Vel: 0.0 MB/s", visible=False, color=ft.colors.CYAN)
+        
+        self.total_bytes_downloaded = 0
+        self.last_global_bytes = 0
+        self.last_global_time = time.time()
+        self.ui_rendered = 0
+        self.global_updater_running = False
         
         # Adicionando na tela
         self.page.add(
@@ -149,7 +166,7 @@ class DriveDownloaderMobile:
             self.info_label,
             self.tabs,
             self.progress_bar,
-            self.progress_text
+            ft.Row([self.progress_text, self.global_stats_text], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
         )
 
     def show_snackbar(self, msg, color=ft.colors.GREEN):
@@ -269,14 +286,26 @@ class DriveDownloaderMobile:
                     self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', '').lower() if hasattr(x, 'path') else "", reverse=True)
                 
                 arquivos_pendentes = []
+                self.ui_rendered = 0
                 for i, arquivo in enumerate(self.arquivos_para_baixar):
                     nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
                     
                     if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                        self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path, is_existing=True, initial_status="✅ Já existe")
+                        if self.ui_rendered < 100:
+                            self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path, is_existing=True, initial_status="✅ Já existe")
+                            self.ui_rendered += 1
+                        self.count_exists += 1
                     else:
                         arquivos_pendentes.append(arquivo)
-                        self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path)
+                        if self.ui_rendered < 100:
+                            self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path)
+                            self.ui_rendered += 1
+                        self.count_queue += 1
+                
+                self.update_tabs()
+                
+                if len(self.arquivos_para_baixar) > 100:
+                    self.add_file_row("aviso", "⚠️ Lista grande: Mostrando os 100 primeiros.", "", initial_status="Aviso")
                 
                 self.arquivos_para_baixar = arquivos_pendentes
                 total = len(self.arquivos_para_baixar)
@@ -327,6 +356,40 @@ class DriveDownloaderMobile:
             self.exists_list.controls.append(row_frame)
         else:
             self.queue_list.controls.append(row_frame)
+            
+    def update_tabs(self):
+        self.tab_queue.text = f"Fila ({self.count_queue})"
+        self.tab_completed.text = f"Concluídos ({self.count_completed})"
+        self.tab_exists.text = f"Já Existentes ({self.count_exists})"
+        self.tab_failed.text = f"Falhas ({self.count_failed})"
+        self.page.update()
+        
+    def update_global_stats(self):
+        if not self.is_downloading:
+            self.global_updater_running = False
+            return
+            
+        current_time = time.time()
+        elapsed = current_time - self.last_global_time
+        if elapsed >= 1.0:
+            with self.lock:
+                bytes_diff = self.total_bytes_downloaded - self.last_global_bytes
+                speed = bytes_diff / elapsed if elapsed > 0 else 0
+                self.last_global_bytes = self.total_bytes_downloaded
+                self.last_global_time = current_time
+                
+                downloaded_mb = self.total_bytes_downloaded / (1024 * 1024)
+                
+                if speed > 1024 * 1024:
+                    speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
+                else:
+                    speed_str = f"{speed / 1024:.1f} KB/s"
+                    
+                self.global_stats_text.value = f"Baixado: {downloaded_mb:.1f} MB | Vel: {speed_str}"
+                self.page.update()
+                
+        # Call this repeatedly every 1 sec
+        threading.Timer(1.0, self.update_global_stats).start()
 
     def toggle_download(self, e):
         if not self.is_downloading:
@@ -348,7 +411,15 @@ class DriveDownloaderMobile:
         
         self.progress_bar.visible = True
         self.progress_text.visible = True
+        self.global_stats_text.visible = True
         self.progress_text.value = f"Progresso Total: {self.archived_count} / {len(self.arquivos_para_baixar)}"
+        
+        self.last_global_time = time.time()
+        self.last_global_bytes = self.total_bytes_downloaded
+        if not self.global_updater_running:
+            self.global_updater_running = True
+            threading.Timer(1.0, self.update_global_stats).start()
+            
         self.page.update()
         
         thread = threading.Thread(target=self.download_files)
@@ -366,13 +437,25 @@ class DriveDownloaderMobile:
             
             if is_completed and row_frame in self.queue_list.controls:
                 self.queue_list.controls.remove(row_frame)
-                self.completed_list.controls.append(row_frame)
+                if self.ui_rendered < 150:
+                    self.completed_list.controls.append(row_frame)
+                self.count_queue -= 1
+                self.count_completed += 1
+                self.update_tabs()
             elif is_existing and row_frame in self.queue_list.controls:
                 self.queue_list.controls.remove(row_frame)
-                self.exists_list.controls.append(row_frame)
+                if self.ui_rendered < 150:
+                    self.exists_list.controls.append(row_frame)
+                self.count_queue -= 1
+                self.count_exists += 1
+                self.update_tabs()
             elif is_failed and row_frame in self.queue_list.controls:
                 self.queue_list.controls.remove(row_frame)
-                self.failed_list.controls.append(row_frame)
+                if self.ui_rendered < 150:
+                    self.failed_list.controls.append(row_frame)
+                self.count_queue -= 1
+                self.count_failed += 1
+                self.update_tabs()
             
             status_text.value = status_str
             status_text.color = color
@@ -385,18 +468,24 @@ class DriveDownloaderMobile:
             self.atualizar_status(arquivo.id, "⏸️ Pausado", ft.colors.AMBER)
             return
             
-        local_state = {'last_time': time.time(), 'last_bytes': 0}
+        local_state = {'last_time': time.time(), 'last_bytes': 0, 'last_speed_bytes': 0}
         
         def custom_progress(bytes_so_far, bytes_total):
             if self.cancel_event.is_set():
                 raise Exception("Pausado pelo usuário")
                 
+            chunk = bytes_so_far - local_state['last_bytes']
+            if chunk > 0:
+                with self.lock:
+                    self.total_bytes_downloaded += chunk
+                local_state['last_bytes'] = bytes_so_far
+                
             current_time = time.time()
             elapsed = current_time - local_state['last_time']
             
             if elapsed > 1.0:
-                speed = (bytes_so_far - local_state['last_bytes']) / elapsed if elapsed > 0 else 0
-                local_state['last_bytes'] = bytes_so_far
+                speed = (bytes_so_far - local_state['last_speed_bytes']) / elapsed if elapsed > 0 else 0
+                local_state['last_speed_bytes'] = bytes_so_far
                 local_state['last_time'] = current_time
                 
                 speed_str = f"{speed / (1024 * 1024):.1f} MB/s" if speed > 1024 * 1024 else f"{speed / 1024:.1f} KB/s"
