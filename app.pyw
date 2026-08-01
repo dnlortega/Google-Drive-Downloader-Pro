@@ -105,6 +105,7 @@ class App(ctk.CTk):
         self.count_completed = 0
         self.count_exists = 0
         self.count_failed = 0
+        self.completed_ids = set()
         
         self.tabview = ctk.CTkTabview(self, height=320)
         self.tabview.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
@@ -365,6 +366,7 @@ class App(ctk.CTk):
         self.count_completed = 0
         self.count_exists = 0
         self.count_failed = 0
+        self.completed_ids = set()
         self.update_tabs()
             
         thread = threading.Thread(target=self.analyze_link, args=(url,))
@@ -579,19 +581,12 @@ class App(ctk.CTk):
             return
             
         # Pula se o arquivo já foi concluído antes
-        if arquivo.id in self.file_labels:
-            data = self.file_labels[arquivo.id]
-            tree = self.trees[data["tree"]]
-            try:
-                status_atual = tree.item(data["iid"], "values")[3]
-                if "✅" in status_atual:
-                    return
-            except:
-                pass
+        if arquivo.id in self.completed_ids:
+            return
             
         if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0 and not self.cancel_event.is_set():
-            # Apenas um fallback caso pule por já existir (se resume=False)
-            pass 
+            self.completed_ids.add(arquivo.id)
+            return
 
         local_state = {'last_time': time.time(), 'last_bytes': 0, 'last_speed_bytes': 0}
         
@@ -640,6 +635,7 @@ class App(ctk.CTk):
                 
                 self.after(0, self.atualizar_status, arquivo.id, "✅ Concluído", "#28a745", "#242424", False, True)
                 self.log_entries.append(f"SUCESSO: {nome_arquivo}")
+                self.completed_ids.add(arquivo.id)
                 sucesso = True
                 
                 if self.extrair_zip_var.get() and arquivo.local_path.lower().endswith('.zip'):
