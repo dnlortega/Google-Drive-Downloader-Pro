@@ -384,7 +384,7 @@ class DriveDownloaderMobile:
             current_time = time.time()
             elapsed = current_time - local_state['last_time']
             
-            if elapsed > 0.5:
+            if elapsed > 1.0:
                 speed = (bytes_so_far - local_state['last_bytes']) / elapsed if elapsed > 0 else 0
                 local_state['last_bytes'] = bytes_so_far
                 local_state['last_time'] = current_time
