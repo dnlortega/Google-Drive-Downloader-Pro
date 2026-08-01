@@ -67,11 +67,10 @@ class App(ctk.CTk):
         self.url_entry.grid(row=0, column=0, padx=(15, 10), pady=15, sticky="ew")
         self.url_entry.set(self.historico[0] if self.historico else "")
 
-        self.analyze_button = ctk.CTkButton(self.input_frame, text="🔍", command=self.analyze_link_thread, width=60, height=40, fg_color="#8b5cf6", hover_color="#7c3aed", font=ctk.CTkFont(size=22))
-        self.analyze_button.grid(row=0, column=1, padx=(0, 10), pady=15)
+        self.action_button = ctk.CTkButton(self.input_frame, text="🚀 Analisar e Baixar", command=self.handle_action, height=40, fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=16, weight="bold"))
+        self.action_button.grid(row=0, column=1, padx=(0, 15), pady=15, sticky="ew")
         
-        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️", command=self.toggle_download, width=60, height=40, state="disabled", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=22))
-        self.download_button.grid(row=0, column=2, padx=(0, 15), pady=15)
+        self.input_frame.grid_columnconfigure(1, weight=0)
 
         # Filters Frame (Card)
         self.filters_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
@@ -346,14 +345,24 @@ class App(ctk.CTk):
         
         return filtrados
 
+    
+    def handle_action(self):
+        text = self.action_button.cget("text")
+        if text == "🚀 Analisar e Baixar":
+            self.action_button.configure(state="disabled", text="⏳ Analisando...")
+            self.analyze_link_thread()
+        elif text == "▶️ Retomar":
+            self.start_download()
+        elif text == "⏸️ Pausar":
+            self.pause_download()
     def analyze_link_thread(self):
         url = self.url_entry.get().strip()
         if not url:
             self.info_label.configure(text="❌ URL inválida.", text_color="#dc3545")
             return
             
-        self.analyze_button.configure(state="disabled")
-        self.download_button.configure(state="disabled")
+
+
         self.info_label.configure(text="🔍 Analisando link...\nPor favor, aguarde.", text_color="white")
         self.progress_frame.grid_remove()
         
@@ -392,7 +401,7 @@ class App(ctk.CTk):
             
             if not self.arquivos_para_baixar:
                 self.after(0, lambda: self.info_label.configure(text="⚠️ Nenhum arquivo encontrado com esse filtro.", text_color="#ffc107"))
-                self.after(0, lambda: self.analyze_button.configure(state="normal"))
+                
             else:
                 self.salvar_historico(url)
                 
@@ -422,12 +431,14 @@ class App(ctk.CTk):
                 total = len(self.arquivos_para_baixar)
                 msg = f"✅ Análise Concluída! {total} arquivo(s) encontrado(s)."
                 self.after(0, lambda: self.info_label.configure(text=msg, text_color="#28a745"))
-                self.after(0, lambda: self.analyze_button.configure(state="normal"))
-                self.after(0, lambda: self.download_button.configure(state="normal", text="⬇️ Iniciar Download", fg_color="#28a745", hover_color="#218838"))
+                if len(self.arquivos_para_baixar) > 0:
+                    self.after(0, self.start_download)
+                else:
+                    self.after(0, lambda: self.action_button.configure(state="normal", text="🚀 Analisar e Baixar"))
                 
         except Exception as e:
             self.after(0, lambda: self.info_label.configure(text=f"❌ Erro na análise:\n{e}", text_color="#dc3545"))
-            self.after(0, lambda: self.analyze_button.configure(state="normal"))
+            self.after(0, lambda: self.action_button.configure(state="normal", text="🚀 Analisar e Baixar"))
 
     def _format_size(self, size_bytes):
         if not size_bytes: return "0 B"
@@ -498,11 +509,7 @@ class App(ctk.CTk):
                 
         self.after(1000, self.update_global_stats)
 
-    def toggle_download(self):
-        if not self.is_downloading:
-            self.start_download()
-        else:
-            self.pause_download()
+
 
     def start_download(self):
         self.is_downloading = True
@@ -513,14 +520,13 @@ class App(ctk.CTk):
             self.log_entries = []
             self.archived_count = 0
             
-        self.analyze_button.configure(state="disabled")
         self.url_entry.configure(state="disabled")
         self.filtro_combo.configure(state="disabled")
         self.ordem_combo.configure(state="disabled")
         self.folder_btn.configure(state="disabled")
         self.clear_folder_btn.configure(state="disabled")
         
-        self.download_button.configure(text="⏸️ Pausar", fg_color="#ffc107", hover_color="#e0a800")
+        self.action_button.configure(state="normal", text="⏸️ Pausar", fg_color="#ffc107", hover_color="#e0a800")
         
         self.progress_frame.grid()
         self.progress_label.configure(text=f"Progresso Total: {self.archived_count} / {len(self.arquivos_para_baixar)}")
@@ -536,7 +542,7 @@ class App(ctk.CTk):
 
     def pause_download(self):
         self.cancel_event.set()
-        self.download_button.configure(state="disabled", text="Pausando...")
+        self.action_button.configure(state="disabled", text="Pausando...")
 
     def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False, is_failed=False, is_existing=False, progresso=""):
         if file_id in self.file_labels:
@@ -706,7 +712,7 @@ class App(ctk.CTk):
             msg = "⏸️ Processo Pausado."
             color = "#ffc107"
             self.emitir_notificacao("Download Pausado", "O processo foi pausado pelo usuário.")
-            self.after(0, lambda: self.download_button.configure(state="normal", text="▶️ Retomar", fg_color="#28a745", hover_color="#218838"))
+            self.after(0, lambda: self.action_button.configure(state="normal", text="▶️ Retomar", fg_color="#28a745", hover_color="#218838"))
             self.after(0, lambda: self.info_label.configure(text=f"{msg}", text_color=color))
         else:
             msg = "✨ Todos os downloads concluídos!"
@@ -718,13 +724,12 @@ class App(ctk.CTk):
                 pass
             
             self.after(0, lambda: self.info_label.configure(text=f"{msg}\nRelatório salvo (se ativado).", text_color=color))
-            self.after(0, lambda: self.download_button.configure(state="normal", text="⬇️ Iniciar Download", fg_color="#28a745", hover_color="#218838"))
+            self.after(0, lambda: self.action_button.configure(state="normal", text="🚀 Analisar e Baixar", fg_color="#10b981", hover_color="#059669"))
             self.after(0, lambda: self.url_entry.configure(state="normal"))
             self.after(0, lambda: self.filtro_combo.configure(state="normal"))
             self.after(0, lambda: self.ordem_combo.configure(state="normal"))
             self.after(0, lambda: self.folder_btn.configure(state="normal"))
             self.after(0, lambda: self.clear_folder_btn.configure(state="normal"))
-            self.after(0, lambda: self.analyze_button.configure(state="normal"))
             self.archived_count = 0
 
 if __name__ == "__main__":
