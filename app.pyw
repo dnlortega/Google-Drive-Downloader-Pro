@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
+from CTkMessagebox import CTkMessagebox
 import threading
 import gdown
 import os
@@ -252,7 +253,10 @@ class App(ctk.CTk):
         if not os.path.exists(self.pasta_destino):
             return
             
-        if messagebox.askyesno("Confirmar Limpeza", f"ATENÇÃO: Você tem certeza que deseja APAGAR TODOS os arquivos da pasta\n{self.pasta_destino}?\n\nIsso não pode ser desfeito."):
+        msg = CTkMessagebox(title="Confirmar Limpeza", message=f"ATENÇÃO: Você tem certeza que deseja APAGAR TODOS os arquivos da pasta\n{self.pasta_destino}?\n\nIsso não pode ser desfeito.",
+                            icon="warning", option_1="Não", option_2="Sim")
+        
+        if msg.get() == "Sim":
             try:
                 for filename in os.listdir(self.pasta_destino):
                     file_path = os.path.join(self.pasta_destino, filename)
@@ -260,9 +264,9 @@ class App(ctk.CTk):
                         os.unlink(file_path)
                     elif os.path.isdir(file_path):
                         shutil.rmtree(file_path)
-                messagebox.showinfo("Sucesso", "A pasta foi esvaziada com sucesso.")
+                CTkMessagebox(title="Sucesso", message="A pasta foi esvaziada com sucesso.", icon="check")
             except Exception as e:
-                messagebox.showerror("Erro", f"Não foi possível limpar a pasta:\n{e}")
+                CTkMessagebox(title="Erro", message=f"Não foi possível limpar a pasta:\n{e}", icon="cancel")
 
     def filtrar_arquivos(self, arquivos):
         filtro = self.filtro_var.get()
