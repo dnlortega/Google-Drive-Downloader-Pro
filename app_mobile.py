@@ -34,7 +34,7 @@ class DriveDownloaderMobile:
         self.log_entries = []
         
         # Configurações
-        self.max_workers = 4
+        self.max_workers = 10
         self.gerar_relatorio = True
         self.extrair_zip = True
         
@@ -66,33 +66,57 @@ class DriveDownloaderMobile:
         self.file_picker = ft.FilePicker(on_result=self.on_folder_selected)
         self.page.overlay.append(self.file_picker)
         
-        # Cabeçalho
-        title = ft.Text("🚀 Drive Downloader", size=24, weight=ft.FontWeight.BOLD)
-        subtitle = ft.Text("Filtros e Gerenciamento Inteligente.", color=ft.colors.GREY_400, italic=True)
+        # AppBar
+        self.page.appbar = ft.AppBar(
+            leading=ft.Icon(ft.icons.CLOUD_DOWNLOAD_ROUNDED, color=ft.colors.BLUE_400),
+            leading_width=40,
+            title=ft.Text("Drive Downloader Pro", weight=ft.FontWeight.BOLD),
+            center_title=False,
+            bgcolor=ft.colors.SURFACE_VARIANT,
+            elevation=2,
+        )
         
         # Destino
         self.folder_text = ft.TextField(
-            label="Destino", value=self.pasta_destino, expand=True, read_only=True
+            label="Destino", value=self.pasta_destino, expand=True, read_only=True,
+            border_radius=10
         )
-        btn_folder = ft.IconButton(icon=ft.icons.FOLDER_OPEN, tooltip="Procurar Pasta", on_click=lambda _: self.file_picker.get_directory_path())
-        btn_settings = ft.IconButton(icon=ft.icons.SETTINGS, tooltip="Opções", on_click=self.abrir_configuracoes)
+        btn_folder = ft.IconButton(icon=ft.icons.FOLDER_OPEN, tooltip="Procurar Pasta", icon_color=ft.colors.BLUE_400, on_click=lambda _: self.file_picker.get_directory_path())
+        btn_settings = ft.IconButton(icon=ft.icons.SETTINGS, tooltip="Opções", icon_color=ft.colors.GREY_400, on_click=self.abrir_configuracoes)
         folder_row = ft.Row([self.folder_text, btn_folder, btn_settings])
         
+        folder_card = ft.Card(
+            elevation=4,
+            content=ft.Container(content=folder_row, padding=10)
+        )
+        
         # URL Input
-        self.url_input = ft.TextField(label="Link do Google Drive", value=self.historico[0] if self.historico else "")
-        self.btn_analyze = ft.ElevatedButton("🔍 Analisar", expand=True, on_click=self.analyze_link_click)
-        self.btn_download = ft.ElevatedButton("⬇️ Iniciar", expand=True, color=ft.colors.WHITE, bgcolor=ft.colors.GREEN_600, disabled=True, on_click=self.toggle_download)
+        self.url_input = ft.TextField(label="Link do Google Drive", value=self.historico[0] if self.historico else "", border_radius=10)
+        self.btn_analyze = ft.ElevatedButton("🔍 Analisar", expand=True, on_click=self.analyze_link_click, color=ft.colors.WHITE, bgcolor=ft.colors.DEEP_PURPLE_500, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)))
+        self.btn_download = ft.ElevatedButton("⬇️ Iniciar", expand=True, color=ft.colors.WHITE, bgcolor=ft.colors.GREEN_600, disabled=True, on_click=self.toggle_download, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)))
         
         # Filtros
         self.filter_type = ft.Dropdown(
             label="Tipo", options=[ft.dropdown.Option("Todos"), ft.dropdown.Option("Imagens"), ft.dropdown.Option("Vídeos"), ft.dropdown.Option("Documentos")],
-            value="Todos", expand=True
+            value="Todos", expand=True, border_radius=10
         )
         self.sort_order = ft.Dropdown(
             label="Ordenar", options=[ft.dropdown.Option("Nome (A-Z)"), ft.dropdown.Option("Nome (Z-A)"), ft.dropdown.Option("Padrão (Drive)")],
-            value="Nome (A-Z)", expand=True
+            value="Nome (A-Z)", expand=True, border_radius=10
         )
         filters_row = ft.Row([self.filter_type, self.sort_order])
+        
+        controls_card = ft.Card(
+            elevation=4,
+            content=ft.Container(
+                content=ft.Column([
+                    self.url_input,
+                    ft.Row([self.btn_analyze, self.btn_download]),
+                    filters_row
+                ]),
+                padding=15
+            )
+        )
         
         self.info_label = ft.Text("Selecione o destino, um filtro e cole o link para começar.", color=ft.colors.BLUE_200, text_align=ft.TextAlign.CENTER)
         
@@ -118,20 +142,16 @@ class DriveDownloaderMobile:
         self.progress_bar = ft.ProgressBar(value=0, visible=False)
         self.progress_text = ft.Text("Progresso: 0%", visible=False, weight=ft.FontWeight.BOLD)
         
-        # Adicionar tudo à página
+        # Adicionando na tela
         self.page.add(
-            title, subtitle, 
-            ft.Divider(height=10, color=ft.colors.TRANSPARENT),
-            folder_row, 
-            self.url_input,
-            ft.Row([self.btn_analyze, self.btn_download]),
-            filters_row,
+            folder_card,
+            controls_card,
             self.info_label,
-            self.progress_text,
+            self.tabs,
             self.progress_bar,
-            self.tabs
+            self.progress_text
         )
-        
+
     def show_snackbar(self, msg, color=ft.colors.GREEN):
         self.page.snack_bar = ft.SnackBar(ft.Text(msg), bgcolor=color)
         self.page.snack_bar.open = True
@@ -149,7 +169,7 @@ class DriveDownloaderMobile:
         zip_switch = ft.Switch(label="Extrair arquivos ZIP", value=self.extrair_zip, on_change=lambda e: setattr(self, 'extrair_zip', e.control.value))
         relatorio_switch = ft.Switch(label="Gerar Relatório TXT", value=self.gerar_relatorio, on_change=lambda e: setattr(self, 'gerar_relatorio', e.control.value))
         
-        simult_slider = ft.Slider(min=1, max=10, divisions=9, value=self.max_workers, label="{value} arquivos por vez", on_change=lambda e: setattr(self, 'max_workers', int(e.control.value)))
+        simult_slider = ft.Slider(min=1, max=20, divisions=19, value=self.max_workers, label="{value} arquivos por vez", on_change=lambda e: setattr(self, 'max_workers', int(e.control.value)))
 
         bs = ft.BottomSheet(
             ft.Container(

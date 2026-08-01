@@ -36,55 +36,55 @@ class App(ctk.CTk):
         self.subtitle_label = ctk.CTkLabel(self, text="Filtros, Auto-retry, e Gerenciamento Inteligente.", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray")
         self.subtitle_label.grid(row=1, column=0, padx=20, pady=(0, 15))
 
-        # Folder Selection Frame
-        self.folder_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.folder_frame.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
+        # Folder Selection Frame (Card)
+        self.folder_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
+        self.folder_frame.grid(row=2, column=0, padx=25, pady=(5, 10), sticky="ew")
         self.folder_frame.grid_columnconfigure(1, weight=1)
 
         self.pasta_destino = os.path.expanduser("~/Downloads/Fotos_Drive")
         
-        self.folder_label = ctk.CTkLabel(self.folder_frame, text="Destino:", font=ctk.CTkFont(weight="bold"))
-        self.folder_label.grid(row=0, column=0, padx=(0, 5), sticky="w")
+        self.folder_label = ctk.CTkLabel(self.folder_frame, text="Destino:", font=ctk.CTkFont(weight="bold", size=14))
+        self.folder_label.grid(row=0, column=0, padx=(15, 5), pady=15, sticky="w")
         
         self.folder_path_var = ctk.StringVar(value=self.pasta_destino)
         self.folder_path_label = ctk.CTkLabel(self.folder_frame, textvariable=self.folder_path_var, text_color="gray", anchor="w")
         self.folder_path_label.grid(row=0, column=1, padx=5, sticky="ew")
         
-        self.folder_btn = ctk.CTkButton(self.folder_frame, text="Procurar Pasta", command=self.escolher_pasta, width=120)
-        self.folder_btn.grid(row=0, column=2, padx=0)
+        self.folder_btn = ctk.CTkButton(self.folder_frame, text="Procurar Pasta", command=self.escolher_pasta, width=120, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(weight="bold"))
+        self.folder_btn.grid(row=0, column=2, padx=5, pady=15)
         
-        self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️ Opções", command=self.abrir_configuracoes, width=100, fg_color="#6c757d", hover_color="#5a6268")
-        self.settings_btn.grid(row=0, column=3, padx=(15, 0))
+        self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️ Opções", command=self.abrir_configuracoes, width=100, fg_color="#4b5563", hover_color="#374151", font=ctk.CTkFont(weight="bold"))
+        self.settings_btn.grid(row=0, column=3, padx=(5, 15), pady=15)
 
-        # Input Frame (URL, Filter & Analyze)
-        self.input_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.input_frame.grid(row=3, column=0, padx=20, pady=0, sticky="ew")
+        # Input Frame (Card)
+        self.input_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
+        self.input_frame.grid(row=3, column=0, padx=25, pady=(0, 10), sticky="ew")
         self.input_frame.grid_columnconfigure(0, weight=1)
         
         self.historico = self.carregar_historico()
         self.url_entry = ctk.CTkComboBox(self.input_frame, values=self.historico, height=40)
-        self.url_entry.grid(row=0, column=0, padx=(0, 10), pady=0, sticky="ew")
+        self.url_entry.grid(row=0, column=0, padx=(15, 10), pady=15, sticky="ew")
         self.url_entry.set(self.historico[0] if self.historico else "")
 
-        self.analyze_button = ctk.CTkButton(self.input_frame, text="🔍 Analisar", command=self.analyze_link_thread, width=120, height=40, font=ctk.CTkFont(weight="bold"))
-        self.analyze_button.grid(row=0, column=1, padx=(0, 10), pady=0)
+        self.analyze_button = ctk.CTkButton(self.input_frame, text="🔍 Analisar", command=self.analyze_link_thread, width=120, height=40, fg_color="#8b5cf6", hover_color="#7c3aed", font=ctk.CTkFont(weight="bold"))
+        self.analyze_button.grid(row=0, column=1, padx=(0, 10), pady=15)
         
-        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️ Iniciar Download", command=self.toggle_download, width=150, height=40, state="disabled", fg_color="#28a745", hover_color="#218838", font=ctk.CTkFont(weight="bold"))
-        self.download_button.grid(row=0, column=2, padx=0, pady=0)
+        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️ Iniciar", command=self.toggle_download, width=150, height=40, state="disabled", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(weight="bold"))
+        self.download_button.grid(row=0, column=2, padx=(0, 15), pady=15)
 
-        # Filters & Sorting Frame
-        self.filters_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.filters_frame.grid(row=4, column=0, padx=20, pady=(0, 10), sticky="ew")
+        # Filters Frame (Card)
+        self.filters_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
+        self.filters_frame.grid(row=4, column=0, padx=25, pady=(0, 15), sticky="ew")
         
-        ctk.CTkLabel(self.filters_frame, text="Filtro de Tipo:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(0, 5))
+        ctk.CTkLabel(self.filters_frame, text="Filtro de Tipo:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(15, 5), pady=10)
         self.filtro_var = ctk.StringVar(value="Todos")
         self.filtro_combo = ctk.CTkComboBox(self.filters_frame, values=["Todos", "Imagens", "Vídeos", "Documentos"], variable=self.filtro_var, width=130)
-        self.filtro_combo.pack(side="left", padx=(0, 20))
+        self.filtro_combo.pack(side="left", padx=(0, 20), pady=10)
 
-        ctk.CTkLabel(self.filters_frame, text="Ordenar por:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(0, 5))
+        ctk.CTkLabel(self.filters_frame, text="Ordenar por:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(0, 5), pady=10)
         self.ordem_var = ctk.StringVar(value="Nome (A-Z)")
         self.ordem_combo = ctk.CTkComboBox(self.filters_frame, values=["Nome (A-Z)", "Nome (Z-A)", "Padrão (Drive)"], variable=self.ordem_var, width=150)
-        self.ordem_combo.pack(side="left")
+        self.ordem_combo.pack(side="left", padx=(0, 15), pady=10)
 
         self.info_label = ctk.CTkLabel(self, text="Bem-vindo! Selecione o destino, um filtro e cole o link para começar.", font=ctk.CTkFont(size=14))
         self.info_label.grid(row=5, column=0, padx=20, pady=10)
@@ -139,7 +139,7 @@ class App(ctk.CTk):
         self.archived_count = 0
         self.log_entries = []
         
-        self.max_workers = 4
+        self.max_workers = 10
         self.gerar_relatorio_ativo = ctk.BooleanVar(value=True)
         self.extrair_zip_var = ctk.BooleanVar(value=True)
         self.settings_window = None
@@ -207,10 +207,10 @@ class App(ctk.CTk):
         self.zip_switch = ctk.CTkSwitch(self.settings_window, text="", variable=self.extrair_zip_var)
         self.zip_switch.grid(row=2, column=1, padx=20, pady=15, sticky="e")
             
-        lbl_simult = ctk.CTkLabel(self.settings_window, text="Downloads Simultâneos (1 a 10):", font=ctk.CTkFont(weight="bold"))
+        lbl_simult = ctk.CTkLabel(self.settings_window, text="Downloads Simultâneos (1 a 20):", font=ctk.CTkFont(weight="bold"))
         lbl_simult.grid(row=3, column=0, padx=20, pady=(15, 5), sticky="w", columnspan=2)
         
-        self.simult_slider = ctk.CTkSlider(self.settings_window, from_=1, to=10, number_of_steps=9, command=self.update_simult_label)
+        self.simult_slider = ctk.CTkSlider(self.settings_window, from_=1, to=20, number_of_steps=19, command=self.update_simult_label)
         self.simult_slider.grid(row=4, column=0, padx=20, pady=5, sticky="ew", columnspan=2)
         self.simult_slider.set(self.max_workers)
         
