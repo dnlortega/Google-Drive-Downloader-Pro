@@ -92,8 +92,8 @@ class DriveDownloaderMobile:
         
         # URL Input
         self.url_input = ft.TextField(label="Link do Google Drive", value=self.historico[0] if self.historico else "", border_radius=10)
-        self.btn_analyze = ft.ElevatedButton("🔍 Analisar", expand=True, on_click=self.analyze_link_click, color=ft.colors.WHITE, bgcolor=ft.colors.DEEP_PURPLE_500, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)))
-        self.btn_download = ft.ElevatedButton("⬇️ Iniciar", expand=True, color=ft.colors.WHITE, bgcolor=ft.colors.GREEN_600, disabled=True, on_click=self.toggle_download, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)))
+        self.btn_analyze = ft.ElevatedButton("🔍", expand=True, on_click=self.analyze_link_click, color=ft.colors.WHITE, bgcolor=ft.colors.DEEP_PURPLE_500, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)))
+        self.btn_download = ft.ElevatedButton("⬇️", expand=True, color=ft.colors.WHITE, bgcolor=ft.colors.GREEN_600, disabled=True, on_click=self.toggle_download, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)))
         
         # Filtros
         self.filter_type = ft.Dropdown(

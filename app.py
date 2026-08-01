@@ -50,10 +50,10 @@ class App(ctk.CTk):
         self.folder_path_label = ctk.CTkLabel(self.folder_frame, textvariable=self.folder_path_var, text_color="gray", anchor="w")
         self.folder_path_label.grid(row=0, column=1, padx=5, sticky="ew")
         
-        self.folder_btn = ctk.CTkButton(self.folder_frame, text="Procurar Pasta", command=self.escolher_pasta, width=120, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(weight="bold"))
+        self.folder_btn = ctk.CTkButton(self.folder_frame, text="📁", command=self.escolher_pasta, width=40, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=20))
         self.folder_btn.grid(row=0, column=2, padx=5, pady=15)
         
-        self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️ Opções", command=self.abrir_configuracoes, width=100, fg_color="#4b5563", hover_color="#374151", font=ctk.CTkFont(weight="bold"))
+        self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️", command=self.abrir_configuracoes, width=40, fg_color="#4b5563", hover_color="#374151", font=ctk.CTkFont(size=20))
         self.settings_btn.grid(row=0, column=3, padx=(5, 15), pady=15)
 
         # Input Frame (Card)
@@ -66,10 +66,10 @@ class App(ctk.CTk):
         self.url_entry.grid(row=0, column=0, padx=(15, 10), pady=15, sticky="ew")
         self.url_entry.set(self.historico[0] if self.historico else "")
 
-        self.analyze_button = ctk.CTkButton(self.input_frame, text="🔍 Analisar", command=self.analyze_link_thread, width=120, height=40, fg_color="#8b5cf6", hover_color="#7c3aed", font=ctk.CTkFont(weight="bold"))
+        self.analyze_button = ctk.CTkButton(self.input_frame, text="🔍", command=self.analyze_link_thread, width=60, height=40, fg_color="#8b5cf6", hover_color="#7c3aed", font=ctk.CTkFont(size=22))
         self.analyze_button.grid(row=0, column=1, padx=(0, 10), pady=15)
         
-        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️ Iniciar", command=self.toggle_download, width=150, height=40, state="disabled", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(weight="bold"))
+        self.download_button = ctk.CTkButton(self.input_frame, text="⬇️", command=self.toggle_download, width=60, height=40, state="disabled", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=22))
         self.download_button.grid(row=0, column=2, padx=(0, 15), pady=15)
 
         # Filters Frame (Card)
@@ -93,10 +93,10 @@ class App(ctk.CTk):
         self.actions_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.actions_frame.grid(row=6, column=0, padx=20, pady=(0, 10))
         
-        self.open_folder_btn = ctk.CTkButton(self.actions_frame, text="📁 Abrir Pasta", command=self.abrir_pasta, fg_color="#6c757d", hover_color="#5a6268", width=150)
+        self.open_folder_btn = ctk.CTkButton(self.actions_frame, text="📁", command=self.abrir_pasta, fg_color="#6c757d", hover_color="#5a6268", width=50, font=ctk.CTkFont(size=20))
         self.open_folder_btn.grid(row=0, column=0, padx=10)
         
-        self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="🧹 Limpar Pasta", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=150)
+        self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="🧹", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=50, font=ctk.CTkFont(size=20))
         self.clear_folder_btn.grid(row=0, column=1, padx=10)
 
         self.tabview = ctk.CTkTabview(self, height=320)
@@ -352,8 +352,8 @@ class App(ctk.CTk):
                 import webbrowser
                 webbrowser.open(f"https://drive.google.com/uc?export=download&id={file_id}")
                 
-        btn = ctk.CTkButton(row_frame, text="Abrir / Ver", width=80, height=24, fg_color="#007bff", hover_color="#0056b3",
-                            command=abrir_arquivo)
+        btn = ctk.CTkButton(row_frame, text="👁️", width=30, height=24, fg_color="#007bff", hover_color="#0056b3",
+                            command=abrir_arquivo, font=ctk.CTkFont(size=14))
         btn.pack(side="right", padx=10, pady=5)
         
         self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl, filename, filepath)
