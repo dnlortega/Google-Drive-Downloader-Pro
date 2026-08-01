@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk, ttk
 from CTkMessagebox import CTkMessagebox
 import threading
 import gdown
@@ -108,22 +108,55 @@ class App(ctk.CTk):
         
         self.tabview = ctk.CTkTabview(self, height=320)
         self.tabview.grid(row=7, column=0, padx=20, pady=(0, 15), sticky="nsew")
-        self.tabview.add(self.tab_names["queue"])
-        self.tabview.add(self.tab_names["completed"])
-        self.tabview.add(self.tab_names["exists"])
-        self.tabview.add(self.tab_names["failed"])
         
-        self.queue_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["queue"]), fg_color="transparent")
-        self.queue_frame.pack(fill="both", expand=True)
+        style = ttk.Style(self)
+        style.theme_use("default")
+        style.configure("Treeview", 
+                        background="#2b2b2b",
+                        foreground="white",
+                        rowheight=30,
+                        fieldbackground="#2b2b2b",
+                        bordercolor="#343638",
+                        borderwidth=0,
+                        font=("Inter", 11))
+        style.map('Treeview', background=[('selected', '#22559b')])
         
-        self.completed_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["completed"]), fg_color="transparent")
-        self.completed_frame.pack(fill="both", expand=True)
-        
-        self.exists_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["exists"]), fg_color="transparent")
-        self.exists_frame.pack(fill="both", expand=True)
-        
-        self.failed_frame = ctk.CTkScrollableFrame(self.tabview.tab(self.tab_names["failed"]), fg_color="transparent")
-        self.failed_frame.pack(fill="both", expand=True)
+        style.configure("Treeview.Heading", 
+                        background="#565b5e", 
+                        foreground="white", 
+                        relief="flat", 
+                        font=("Inter", 12, "bold"))
+        style.map("Treeview.Heading", background=[('active', '#3484F0')])
+
+        self.trees = {}
+        for key in ["queue", "completed", "exists", "failed"]:
+            self.tabview.add(self.tab_names[key])
+            tab_frame = self.tabview.tab(self.tab_names[key])
+            
+            tree_frame = ctk.CTkFrame(tab_frame, fg_color="transparent")
+            tree_frame.pack(fill="both", expand=True)
+            
+            tree = ttk.Treeview(tree_frame, columns=("ID", "Nome", "Tamanho", "Status", "Progresso"), show="headings", selectmode="extended")
+            tree.heading("ID", text="ID")
+            tree.heading("Nome", text="Nome do Arquivo")
+            tree.heading("Tamanho", text="Tamanho")
+            tree.heading("Status", text="Status")
+            tree.heading("Progresso", text="Progresso")
+            
+            tree.column("ID", width=0, stretch=False)
+            tree.column("Nome", width=400, anchor="w")
+            tree.column("Tamanho", width=100, anchor="center")
+            tree.column("Status", width=120, anchor="center")
+            tree.column("Progresso", width=150, anchor="center")
+            
+            scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+            tree.configure(yscrollcommand=scrollbar.set)
+            
+            tree.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            tree.bind("<Double-1>", self.on_tree_double_click)
+            self.trees[key] = tree
 
         # Global Progress
         self.progress_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -140,6 +173,29 @@ class App(ctk.CTk):
         self.progress_bar.set(0)
         self.progress_bar.grid(row=1, column=0, columnspan=2, pady=(0, 5), sticky="ew")
         self.progress_frame.grid_remove()
+
+        # Footer Frame
+        self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.footer_frame.grid(row=9, column=0, padx=20, pady=(0, 10), sticky="ew")
+        
+        dev_label = ctk.CTkLabel(self.footer_frame, text="Desenvolvido por Daniel Ortega", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray")
+        dev_label.pack(side="left")
+        
+        def open_github(e):
+            import webbrowser
+            webbrowser.open("https://github.com/dnlortega")
+            
+        def open_linkedin(e):
+            import webbrowser
+            webbrowser.open("https://www.linkedin.com/in/daniel-op/")
+            
+        github_lbl = ctk.CTkLabel(self.footer_frame, text="GitHub", font=ctk.CTkFont(size=12, underline=True, weight="bold"), text_color="#3b82f6", cursor="hand2")
+        github_lbl.pack(side="right", padx=(15, 0))
+        github_lbl.bind("<Button-1>", open_github)
+        
+        linkedin_lbl = ctk.CTkLabel(self.footer_frame, text="LinkedIn", font=ctk.CTkFont(size=12, underline=True, weight="bold"), text_color="#0a66c2", cursor="hand2")
+        linkedin_lbl.pack(side="right", padx=(15, 0))
+        linkedin_lbl.bind("<Button-1>", open_linkedin)
 
         # Vars
         self.arquivos_para_baixar = []
@@ -300,11 +356,16 @@ class App(ctk.CTk):
         self.info_label.configure(text="🔍 Analisando link...\nPor favor, aguarde.", text_color="white")
         self.progress_frame.grid_remove()
         
-        for widget in self.queue_frame.winfo_children():
-            widget.destroy()
-        for widget in self.completed_frame.winfo_children():
-            widget.destroy()
+        for tree in self.trees.values():
+            for item in tree.get_children():
+                tree.delete(item)
         self.file_labels.clear()
+        
+        self.count_queue = 0
+        self.count_completed = 0
+        self.count_exists = 0
+        self.count_failed = 0
+        self.update_tabs()
             
         thread = threading.Thread(target=self.analyze_link, args=(url,))
         thread.start()
@@ -341,26 +402,19 @@ class App(ctk.CTk):
                     self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', '').lower() if hasattr(x, 'path') else "", reverse=True)
                 
                 arquivos_pendentes = []
-                self.ui_rendered = 0
                 for i, arquivo in enumerate(self.arquivos_para_baixar):
                     nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
+                    tamanho = self._format_size(os.path.getsize(arquivo.local_path)) if os.path.exists(arquivo.local_path) else "Desconhecido"
                     
                     if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                        if self.ui_rendered < 100:
-                            self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, self.exists_frame, "✅ Já existe", "#28a745", "#242424")
-                            self.ui_rendered += 1
+                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, "exists", "✅ Já existe", tamanho)
                         self.count_exists += 1
                     else:
                         arquivos_pendentes.append(arquivo)
-                        if self.ui_rendered < 100:
-                            self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path)
-                            self.ui_rendered += 1
+                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, "queue", "⏳ Aguardando", tamanho)
                         self.count_queue += 1
                         
                 self.after(0, self.update_tabs)
-                
-                if len(self.arquivos_para_baixar) > 100:
-                    self.after(0, self.add_file_row, "aviso", "⚠️ Lista grande: Mostrando os 100 primeiros arquivos.", "", None, "Aviso", "#ffc107", "#242424")
                 
                 self.arquivos_para_baixar = arquivos_pendentes
                 total = len(self.arquivos_para_baixar)
@@ -373,29 +427,32 @@ class App(ctk.CTk):
             self.after(0, lambda: self.info_label.configure(text=f"❌ Erro na análise:\n{e}", text_color="#dc3545"))
             self.after(0, lambda: self.analyze_button.configure(state="normal"))
 
-    def add_file_row(self, file_id, filename, filepath, target_frame=None, initial_status="⏳ Aguardando", initial_color="#ffffff", initial_bg="#333333"):
-        parent = target_frame if target_frame else self.queue_frame
-        row_frame = ctk.CTkFrame(parent, fg_color=initial_bg)
-        row_frame.pack(fill="x", padx=5, pady=2)
+    def _format_size(self, size_bytes):
+        if not size_bytes: return "0 B"
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.1f} PB"
+
+    def add_file_row(self, file_id, filename, filepath, target_tree_key="queue", initial_status="⏳ Aguardando", tamanho="Desconhecido"):
+        tree = self.trees[target_tree_key]
+        iid = tree.insert("", "end", values=(file_id, filename, tamanho, initial_status, "0%"))
+        self.file_labels[file_id] = {"tree": target_tree_key, "iid": iid, "filename": filename, "filepath": filepath}
         
-        status_lbl = ctk.CTkLabel(row_frame, text=initial_status, text_color=initial_color, font=ctk.CTkFont(size=12, weight="bold"), width=150, anchor="w")
-        status_lbl.pack(side="left", padx=10, pady=5)
+    def on_tree_double_click(self, event):
+        tree = event.widget
+        selected = tree.selection()
+        if not selected: return
+        file_id = tree.item(selected[0], "values")[0]
         
-        name_lbl = ctk.CTkLabel(row_frame, text=filename, font=ctk.CTkFont(size=12))
-        name_lbl.pack(side="left", padx=10, pady=5)
-        
-        def abrir_arquivo():
+        if file_id in self.file_labels:
+            filepath = self.file_labels[file_id]["filepath"]
             if os.path.exists(filepath):
                 os.startfile(filepath)
             else:
                 import webbrowser
                 webbrowser.open(f"https://drive.google.com/uc?export=download&id={file_id}")
-                
-        btn = ctk.CTkButton(row_frame, text="👁️", width=30, height=24, fg_color="#007bff", hover_color="#0056b3",
-                            command=abrir_arquivo, font=ctk.CTkFont(size=14))
-        btn.pack(side="right", padx=10, pady=5)
-        
-        self.file_labels[file_id] = (status_lbl, row_frame, btn, name_lbl, filename, filepath)
 
     def update_tabs(self):
         new_q = f"Fila ({self.count_queue})"
@@ -479,35 +536,40 @@ class App(ctk.CTk):
         self.cancel_event.set()
         self.download_button.configure(state="disabled", text="Pausando...")
 
-    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False, is_failed=False, is_existing=False):
+    def atualizar_status(self, file_id, status_text, color, frame_color, is_highlighted=False, is_completed=False, is_failed=False, is_existing=False, progresso=""):
         if file_id in self.file_labels:
-            lbl, frm, btn, name_lbl, filename, filepath = self.file_labels[file_id]
+            data = self.file_labels[file_id]
+            current_tree_key = data["tree"]
+            iid = data["iid"]
+            tree = self.trees[current_tree_key]
             
-            if is_completed:
-                frm.destroy()
-                if self.ui_rendered < 150: # Evitar redesenhar infinito
-                    self.add_file_row(file_id, filename, filepath, target_frame=self.completed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
+            # Atualiza os valores
+            vals = list(tree.item(iid, "values"))
+            vals[3] = status_text
+            if progresso:
+                vals[4] = progresso
+            tree.item(iid, values=vals)
+            
+            # Move para a aba correta se necessário
+            new_tree_key = current_tree_key
+            if is_completed: new_tree_key = "completed"
+            elif is_existing: new_tree_key = "exists"
+            elif is_failed: new_tree_key = "failed"
+            
+            if new_tree_key != current_tree_key:
+                # Remove da arvore atual
+                tree.delete(iid)
+                # Insere na nova
+                new_tree = self.trees[new_tree_key]
+                new_iid = new_tree.insert("", "end", values=vals)
+                self.file_labels[file_id]["tree"] = new_tree_key
+                self.file_labels[file_id]["iid"] = new_iid
+                
                 self.count_queue -= 1
-                self.count_completed += 1
+                if is_completed: self.count_completed += 1
+                elif is_existing: self.count_exists += 1
+                elif is_failed: self.count_failed += 1
                 self.update_tabs()
-            elif is_existing:
-                frm.destroy()
-                if self.ui_rendered < 150:
-                    self.add_file_row(file_id, filename, filepath, target_frame=self.exists_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
-                self.count_queue -= 1
-                self.count_exists += 1
-                self.update_tabs()
-            elif is_failed:
-                frm.destroy()
-                if self.ui_rendered < 150:
-                    self.add_file_row(file_id, filename, filepath, target_frame=self.failed_frame, initial_status=status_text, initial_color=color, initial_bg=frame_color)
-                self.count_queue -= 1
-                self.count_failed += 1
-                self.update_tabs()
-            else:
-                lbl.configure(text=status_text, text_color=color)
-                frm.configure(fg_color=frame_color)
-                name_lbl.configure(font=ctk.CTkFont(size=13 if is_highlighted else 12, weight="bold" if is_highlighted else "normal"))
 
     def download_worker(self, arquivo):
         nome_arquivo = os.path.basename(arquivo.local_path)
@@ -517,8 +579,15 @@ class App(ctk.CTk):
             return
             
         # Pula se o arquivo já foi concluído antes
-        if arquivo.id in self.file_labels and "✅" in self.file_labels[arquivo.id][0].cget("text"):
-            return
+        if arquivo.id in self.file_labels:
+            data = self.file_labels[arquivo.id]
+            tree = self.trees[data["tree"]]
+            try:
+                status_atual = tree.item(data["iid"], "values")[3]
+                if "✅" in status_atual:
+                    return
+            except:
+                pass
             
         if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0 and not self.cancel_event.is_set():
             # Apenas um fallback caso pule por já existir (se resume=False)
@@ -550,11 +619,9 @@ class App(ctk.CTk):
                     speed_str = f"{speed / 1024:.1f} KB/s"
                     
                 percentage = (bytes_so_far / bytes_total * 100) if bytes_total else 0
-                if percentage > 0:
-                    status_text = f"🔄 {percentage:.0f}% | {speed_str}"
-                else:
-                    status_text = f"🔄 {speed_str}"
-                self.after(0, self.atualizar_status, arquivo.id, status_text, "#00ffff", "#1f538d", True)
+                prog_text = f"{percentage:.0f}% | {speed_str}" if percentage > 0 else f"{speed_str}"
+                
+                self.after(0, self.atualizar_status, arquivo.id, "🔄 Baixando...", "#00ffff", "#1f538d", True, False, False, False, prog_text)
         
         # Auto-Retry System
         max_retries = 3
