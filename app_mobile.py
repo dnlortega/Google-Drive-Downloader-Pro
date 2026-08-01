@@ -275,7 +275,7 @@ class DriveDownloaderMobile:
                 os.startfile(filepath)
             else:
                 import webbrowser
-                webbrowser.open(f"https://drive.google.com/open?id={file_id}")
+                webbrowser.open(f"https://drive.google.com/uc?export=download&id={file_id}")
                 
         btn_open = ft.IconButton(
             icon=ft.icons.OPEN_IN_NEW, 

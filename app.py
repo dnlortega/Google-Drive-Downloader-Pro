@@ -350,7 +350,7 @@ class App(ctk.CTk):
                 os.startfile(filepath)
             else:
                 import webbrowser
-                webbrowser.open(f"https://drive.google.com/open?id={file_id}")
+                webbrowser.open(f"https://drive.google.com/uc?export=download&id={file_id}")
                 
         btn = ctk.CTkButton(row_frame, text="Abrir / Ver", width=80, height=24, fg_color="#007bff", hover_color="#0056b3",
                             command=abrir_arquivo)
