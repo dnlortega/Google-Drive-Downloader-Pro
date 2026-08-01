@@ -320,10 +320,17 @@ class App(ctk.CTk):
                 elif ordem == "Nome (Z-A)":
                     self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', '').lower() if hasattr(x, 'path') else "", reverse=True)
                 
+                arquivos_pendentes = []
                 for i, arquivo in enumerate(self.arquivos_para_baixar):
                     nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
-                    self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path)
+                    
+                    if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, self.exists_frame, "✅ Já existe", "#28a745", "#242424")
+                    else:
+                        arquivos_pendentes.append(arquivo)
+                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path)
                 
+                self.arquivos_para_baixar = arquivos_pendentes
                 total = len(self.arquivos_para_baixar)
                 msg = f"✅ Análise Concluída! {total} arquivo(s) encontrado(s)."
                 self.after(0, lambda: self.info_label.configure(text=msg, text_color="#28a745"))

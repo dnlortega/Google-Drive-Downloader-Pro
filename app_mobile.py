@@ -268,10 +268,17 @@ class DriveDownloaderMobile:
                 elif ordem == "Nome (Z-A)":
                     self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', '').lower() if hasattr(x, 'path') else "", reverse=True)
                 
+                arquivos_pendentes = []
                 for i, arquivo in enumerate(self.arquivos_para_baixar):
                     nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
-                    self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path)
+                    
+                    if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+                        self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path, is_existing=True, initial_status="✅ Já existe")
+                    else:
+                        arquivos_pendentes.append(arquivo)
+                        self.add_file_row(arquivo.id, nome_arquivo, arquivo.local_path)
                 
+                self.arquivos_para_baixar = arquivos_pendentes
                 total = len(self.arquivos_para_baixar)
                 self.info_label.value = f"✅ Análise Concluída! {total} arquivo(s)."
                 self.info_label.color = ft.colors.GREEN_400
@@ -286,8 +293,9 @@ class DriveDownloaderMobile:
             self.btn_analyze.disabled = False
             self.page.update()
 
-    def add_file_row(self, file_id, filename, filepath, is_completed=False, initial_status="⏳ Aguardando"):
-        status_text = ft.Text(initial_status, size=12, weight=ft.FontWeight.BOLD, color=ft.colors.WHITE, width=120)
+    def add_file_row(self, file_id, filename, filepath, is_completed=False, is_existing=False, initial_status="⏳ Aguardando"):
+        color = ft.colors.GREEN_400 if is_existing else ft.colors.WHITE
+        status_text = ft.Text(initial_status, size=12, weight=ft.FontWeight.BOLD, color=color, width=120)
         name_text = ft.Text(filename, size=12, expand=True)
         
         def open_file_or_link(e):
@@ -315,6 +323,8 @@ class DriveDownloaderMobile:
         
         if is_completed:
             self.completed_list.controls.append(row_frame)
+        elif is_existing:
+            self.exists_list.controls.append(row_frame)
         else:
             self.queue_list.controls.append(row_frame)
 
