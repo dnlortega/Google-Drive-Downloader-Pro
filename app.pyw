@@ -413,18 +413,23 @@ class App(ctk.CTk):
                     self.arquivos_para_baixar.sort(key=lambda x: getattr(x, 'path', '').lower() if hasattr(x, 'path') else "", reverse=True)
                 
                 arquivos_pendentes = []
+                inserir_exists = []
+                inserir_queue = []
+                
                 for i, arquivo in enumerate(self.arquivos_para_baixar):
                     nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
                     tamanho = self._format_size(os.path.getsize(arquivo.local_path)) if os.path.exists(arquivo.local_path) else "Desconhecido"
                     
                     if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
-                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, "exists", "✅ Já existe", tamanho)
+                        inserir_exists.append((arquivo.id, nome_arquivo, arquivo.local_path, "✅ Já existe", tamanho))
                         self.count_exists += 1
                     else:
                         arquivos_pendentes.append(arquivo)
-                        self.after(0, self.add_file_row, arquivo.id, nome_arquivo, arquivo.local_path, "queue", "⏳ Aguardando", tamanho)
+                        inserir_queue.append((arquivo.id, nome_arquivo, arquivo.local_path, "⏳ Aguardando", tamanho))
                         self.count_queue += 1
                         
+                self.after(0, self.bulk_add_rows, inserir_exists, "exists")
+                self.after(0, self.bulk_add_rows, inserir_queue, "queue")
                 self.after(0, self.update_tabs)
                 
                 self.arquivos_para_baixar = arquivos_pendentes
@@ -447,6 +452,12 @@ class App(ctk.CTk):
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
         return f"{size_bytes:.1f} PB"
+
+    def bulk_add_rows(self, data_list, target_tree_key):
+        tree = self.trees[target_tree_key]
+        for file_id, filename, filepath, initial_status, tamanho in data_list:
+            iid = tree.insert("", "end", values=(file_id, filename, tamanho, initial_status, "0%"))
+            self.file_labels[file_id] = {"tree": target_tree_key, "iid": iid, "filename": filename, "filepath": filepath}
 
     def add_file_row(self, file_id, filename, filepath, target_tree_key="queue", initial_status="⏳ Aguardando", tamanho="Desconhecido"):
         tree = self.trees[target_tree_key]
