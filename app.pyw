@@ -621,7 +621,15 @@ class App(ctk.CTk):
             return
             
         if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0 and not self.cancel_event.is_set():
+            self.after(0, self.atualizar_status, arquivo.id, "✅ Já existe", "#28a745", "#242424", False, False, False, True)
+            self.log_entries.append(f"JÁ EXISTE: {nome_arquivo}")
             self.completed_ids.add(arquivo.id)
+            
+            with self.lock:
+                self.archived_count += 1
+                p = self.archived_count / len(self.arquivos_para_baixar) if len(self.arquivos_para_baixar) > 0 else 1
+                self.after(0, lambda p=p: self.progress_bar.set(p))
+                self.after(0, lambda count=self.archived_count, total=len(self.arquivos_para_baixar): self.progress_label.configure(text=f"Progresso Total: {count} / {total}"))
             return
 
         local_state = {'last_time': time.time(), 'last_bytes': 0, 'last_speed_bytes': 0}
