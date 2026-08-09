@@ -25,6 +25,9 @@ HISTORY_FILE = "history.json"
 class AppUI(ctk.CTk):
     def __init__(self):
         super().__init__()
+        
+        # Redireciona qualquer crash da interface (Tkinter) direto para o log
+        self.report_callback_exception = self.show_error
 
         self.title("Google Drive Downloader Pro")
         self.geometry("900x850")
@@ -210,6 +213,16 @@ class AppUI(ctk.CTk):
     def quit_window(self, icon, item):
         self.tray_icon.stop()
         self.quit()
+
+    def show_error(self, exc, val, tb):
+        logger.error("Erro na Interface (Tkinter Crash):", exc_info=(exc, val, tb))
+        import traceback
+        erro_msg = "".join(traceback.format_exception(exc, val, tb))
+        # Tentativa segura de mostrar caixa de erro sem travar o loop principal
+        try:
+            CTkMessagebox(title="Erro Fatal na Interface", message=f"Ocorreu um erro interno.\nConsulte o arquivo app.log para mais detalhes.\n\nResumo:\n{str(val)}", icon="cancel")
+        except:
+            pass
 
     def prev_page(self):
         if self.queue_page > 0:
