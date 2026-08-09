@@ -317,16 +317,22 @@ class App(ctk.CTk):
                             icon="warning", option_1="Não", option_2="Sim")
         
         if msg.get() == "Sim":
-            try:
-                for filename in os.listdir(self.pasta_destino):
-                    file_path = os.path.join(self.pasta_destino, filename)
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                CTkMessagebox(title="Sucesso", message="A pasta foi esvaziada com sucesso.", icon="check")
-            except Exception as e:
-                CTkMessagebox(title="Erro", message=f"Não foi possível limpar a pasta:\n{e}", icon="cancel")
+            self.clear_folder_btn.configure(state="disabled")
+            threading.Thread(target=self._limpar_pasta_thread).start()
+            
+    def _limpar_pasta_thread(self):
+        try:
+            for filename in os.listdir(self.pasta_destino):
+                file_path = os.path.join(self.pasta_destino, filename)
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            self.after(0, lambda: CTkMessagebox(title="Sucesso", message="A pasta foi esvaziada com sucesso.", icon="check"))
+        except Exception as e:
+            self.after(0, lambda: CTkMessagebox(title="Erro", message=f"Não foi possível limpar a pasta:\n{e}", icon="cancel"))
+        finally:
+            self.after(0, lambda: self.clear_folder_btn.configure(state="normal"))
 
     def filtrar_arquivos(self, arquivos):
         filtro = self.filtro_var.get()
@@ -473,10 +479,20 @@ class App(ctk.CTk):
         return f"{size_bytes:.1f} PB"
 
     def bulk_add_rows(self, data_list, target_tree_key):
-        tree = self.trees[target_tree_key]
-        for file_id, filename, filepath, initial_status, tamanho in data_list:
-            iid = tree.insert("", "end", values=(file_id, filename, tamanho, initial_status, "0%"))
-            self.file_labels[file_id] = {"tree": target_tree_key, "iid": iid, "filename": filename, "filepath": filepath}
+        chunk_size = 50
+        def process_chunk(start_idx):
+            end_idx = min(start_idx + chunk_size, len(data_list))
+            tree = self.trees[target_tree_key]
+            for i in range(start_idx, end_idx):
+                file_id, filename, filepath, initial_status, tamanho = data_list[i]
+                iid = tree.insert("", "end", values=(file_id, filename, tamanho, initial_status, "0%"))
+                self.file_labels[file_id] = {"tree": target_tree_key, "iid": iid, "filename": filename, "filepath": filepath}
+            
+            if end_idx < len(data_list):
+                self.after(10, lambda: process_chunk(end_idx))
+                
+        if data_list:
+            process_chunk(0)
 
     def add_file_row(self, file_id, filename, filepath, target_tree_key="queue", initial_status="⏳ Aguardando", tamanho="Desconhecido"):
         tree = self.trees[target_tree_key]
