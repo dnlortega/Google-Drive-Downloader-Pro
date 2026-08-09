@@ -58,10 +58,10 @@ class AppUI(ctk.CTk):
         self.folder_path_label = ctk.CTkLabel(self.folder_frame, textvariable=self.folder_path_var, text_color="gray", anchor="w")
         self.folder_path_label.grid(row=0, column=1, padx=5, sticky="ew")
         
-        self.folder_btn = ctk.CTkButton(self.folder_frame, text="Abrir", command=self.escolher_pasta, width=60, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=14))
+        self.folder_btn = ctk.CTkButton(self.folder_frame, text="📂", command=self.escolher_pasta, width=40, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=18))
         self.folder_btn.grid(row=0, column=2, padx=5, pady=15)
         
-        self.settings_btn = ctk.CTkButton(self.folder_frame, text="Config", command=self.abrir_configuracoes, width=60, fg_color="#4b5563", hover_color="#374151", font=ctk.CTkFont(size=14))
+        self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️", command=self.abrir_configuracoes, width=40, fg_color="#4b5563", hover_color="#374151", font=ctk.CTkFont(size=18))
         self.settings_btn.grid(row=0, column=3, padx=(5, 15), pady=15)
 
         self.input_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
@@ -73,10 +73,10 @@ class AppUI(ctk.CTk):
         self.url_entry.grid(row=0, column=0, padx=(15, 10), pady=15, sticky="ew")
         self.url_entry.set(self.historico[0] if self.historico else "")
 
-        self.analyze_btn = ctk.CTkButton(self.input_frame, text="Analisar", command=self.handle_analyze_only, height=40, width=120, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=16, weight="bold"))
+        self.analyze_btn = ctk.CTkButton(self.input_frame, text="🔍", command=self.handle_analyze_only, height=40, width=50, fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=20))
         self.analyze_btn.grid(row=0, column=1, padx=5, pady=15, sticky="ew")
 
-        self.action_button = ctk.CTkButton(self.input_frame, text="Analisar e Baixar", command=self.handle_action, height=40, width=180, fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=16, weight="bold"))
+        self.action_button = ctk.CTkButton(self.input_frame, text="⬇️", command=self.handle_action, height=40, width=50, fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=20))
         self.action_button.grid(row=0, column=2, padx=(5, 15), pady=15, sticky="ew")
         
         self.filters_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
@@ -98,10 +98,10 @@ class AppUI(ctk.CTk):
         self.actions_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.actions_frame.grid(row=6, column=0, padx=20, pady=(0, 10))
         
-        self.open_folder_btn = ctk.CTkButton(self.actions_frame, text="Abrir Pasta", command=self.abrir_pasta, fg_color="#6c757d", hover_color="#5a6268", width=100)
+        self.open_folder_btn = ctk.CTkButton(self.actions_frame, text="📂", command=self.abrir_pasta, fg_color="#6c757d", hover_color="#5a6268", width=40, font=ctk.CTkFont(size=18))
         self.open_folder_btn.grid(row=0, column=0, padx=10)
         
-        self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="Limpar Pasta", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=100)
+        self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="🗑️", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=40, font=ctk.CTkFont(size=18))
         self.clear_folder_btn.grid(row=0, column=1, padx=10)
 
         # Dados da Fila Virtual
@@ -153,11 +153,11 @@ class AppUI(ctk.CTk):
         # Paginacao para a fila
         self.pagination_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.pagination_frame.grid(row=8, column=0, pady=5)
-        self.btn_prev = ctk.CTkButton(self.pagination_frame, text="< Anterior", width=80, command=self.prev_page)
+        self.btn_prev = ctk.CTkButton(self.pagination_frame, text="◀", width=40, command=self.prev_page, font=ctk.CTkFont(size=16))
         self.btn_prev.pack(side="left", padx=5)
         self.lbl_page = ctk.CTkLabel(self.pagination_frame, text="Pág 1")
         self.lbl_page.pack(side="left", padx=10)
-        self.btn_next = ctk.CTkButton(self.pagination_frame, text="Próxima >", width=80, command=self.next_page)
+        self.btn_next = ctk.CTkButton(self.pagination_frame, text="▶", width=40, command=self.next_page, font=ctk.CTkFont(size=16))
         self.btn_next.pack(side="left", padx=5)
 
         self.progress_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -178,7 +178,7 @@ class AppUI(ctk.CTk):
         self.file_labels = {} 
         self.gerar_relatorio_ativo = ctk.BooleanVar(value=False)
         self.extrair_zip_var = ctk.BooleanVar(value=False)
-        self.max_workers = 10
+        self.max_workers = 1
         self.settings_window = None
         
         # Init Core
@@ -275,10 +275,10 @@ class AppUI(ctk.CTk):
     def on_analyze_finish(self, arquivos_para_baixar, msg, color, has_files):
         self.info_label.configure(text=msg, text_color=color)
         if has_files:
-            self.action_button.configure(state="normal", text="Baixar Tudo", fg_color="#10b981", hover_color="#059669")
+            self.action_button.configure(state="normal", text="📥", fg_color="#10b981", hover_color="#059669")
         else:
-            self.action_button.configure(state="disabled", text="Tudo Baixado")
-        self.analyze_btn.configure(state="normal", text="Analisar")
+            self.action_button.configure(state="disabled", text="✔️")
+        self.analyze_btn.configure(state="normal", text="🔍")
 
     def on_download_progress(self, count, total):
         self.progress_bar.set(count / total if total else 0)
@@ -287,7 +287,7 @@ class AppUI(ctk.CTk):
     def on_download_finish(self, is_paused, log_entries):
         self.global_updater_running = False
         if is_paused:
-            self.action_button.configure(state="normal", text="Retomar", fg_color="#28a745", hover_color="#218838")
+            self.action_button.configure(state="normal", text="▶️", fg_color="#28a745", hover_color="#218838")
             self.info_label.configure(text="Processo Pausado.", text_color="#ffc107")
         else:
             if self.gerar_relatorio_ativo.get():
@@ -295,7 +295,7 @@ class AppUI(ctk.CTk):
                     with open(os.path.join(self.pasta_destino, "relatorio_downloads.txt"), "w") as f:
                         f.write("\n".join(log_entries))
                 except: pass
-            self.action_button.configure(state="normal", text="Analisar e Baixar", fg_color="#10b981")
+            self.action_button.configure(state="normal", text="⬇️", fg_color="#10b981")
             self.info_label.configure(text="Todos os downloads concluídos!", text_color="#28a745")
             try: winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS)
             except: pass
@@ -404,21 +404,21 @@ class AppUI(ctk.CTk):
             except Exception: pass
 
     def handle_analyze_only(self):
-        self.analyze_btn.configure(state="disabled", text="⏳...")
+        self.analyze_btn.configure(state="disabled", text="⏳")
         self.action_button.configure(state="disabled")
         self.iniciar_analise(False)
 
     def handle_action(self):
         txt = self.action_button.cget("text")
-        if txt == "Analisar e Baixar":
+        if txt == "⬇️":
             self.analyze_btn.configure(state="disabled")
-            self.action_button.configure(state="disabled", text="Analisando...")
+            self.action_button.configure(state="disabled", text="⏳")
             self.iniciar_analise(True)
-        elif txt in ["Baixar Tudo", "Retomar"]:
+        elif txt in ["📥", "▶️"]:
             self.comecar_download()
-        elif txt == "Pausar":
+        elif txt == "⏸️":
             self.core.pause_download()
-            self.action_button.configure(state="disabled", text="Pausando...")
+            self.action_button.configure(state="disabled", text="⏳")
 
     def iniciar_analise(self, auto_download):
         url = self.url_entry.get().strip()
@@ -459,7 +459,7 @@ class AppUI(ctk.CTk):
         self.folder_btn.configure(state="disabled")
         self.clear_folder_btn.configure(state="disabled")
         
-        self.action_button.configure(state="normal", text="Pausar", fg_color="#ffc107")
+        self.action_button.configure(state="normal", text="⏸️", fg_color="#ffc107")
         self.progress_frame.grid()
         self.progress_label.configure(text=f"Progresso Total: {self.core.archived_count} / {len(self.core.arquivos_para_baixar)}")
         
