@@ -102,11 +102,19 @@ class DownloaderCore:
             inserir_queue = []
             count_exists = 0
             
+            # Rastrear todos os nomes de arquivos já baixados na pasta destino (ignorando subpastas originais)
+            nomes_existentes = set()
+            if os.path.exists(self.pasta_destino):
+                for root, _, files in os.walk(self.pasta_destino):
+                    for f in files:
+                        nomes_existentes.add(f.lower())
+            
             for i, arquivo in enumerate(filtrados):
                 nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else f"Arquivo_{i}"
                 tamanho = self._format_size(os.path.getsize(arquivo.local_path)) if os.path.exists(arquivo.local_path) else "Desconhecido"
                 
-                if os.path.exists(arquivo.local_path) and os.path.getsize(arquivo.local_path) > 0:
+                # Verifica apenas pelo NOME do arquivo, independentemente de onde ele esteja salvo
+                if nome_arquivo.lower() in nomes_existentes:
                     inserir_exists.append((arquivo.id, nome_arquivo, arquivo.local_path, "✅ Já existe", tamanho))
                     count_exists += 1
                 else:
