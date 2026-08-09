@@ -6,6 +6,10 @@ import concurrent.futures
 import gdown
 from utils import logger
 
+def _extrair_zip_proc(filepath, extract_path):
+    with zipfile.ZipFile(filepath, 'r') as zip_ref:
+        zip_ref.extractall(extract_path)
+
 class SingleFile:
     def __init__(self, f_id, path):
         self.id = f_id
@@ -182,7 +186,9 @@ class DownloaderCore:
                 
                 speed_str = f"{speed / (1024 * 1024):.1f} MB/s" if speed > 1024 * 1024 else f"{speed / 1024:.1f} KB/s"
                 percentage = (bytes_so_far / bytes_total * 100) if bytes_total else 0
-                prog_text = f"{percentage:.0f}% | {speed_str}" if percentage > 0 else speed_str
+                baixado_str = self._format_size(bytes_so_far)
+                total_str = self._format_size(bytes_total) if bytes_total else "?"
+                prog_text = f"{baixado_str} / {total_str} ({percentage:.0f}%) | {speed_str}" if percentage > 0 else f"{baixado_str} | {speed_str}"
                 
                 self.callbacks.get('update_status')(arquivo.id, "🔄 Baixando...", "#00ffff", "#1f538d", True, False, False, False, prog_text)
         
@@ -210,8 +216,8 @@ class DownloaderCore:
                     self.callbacks.get('update_status')(arquivo.id, "📦 Extraindo ZIP...", "#17a2b8", "#1f538d", True, False, False, False, "")
                     try:
                         extract_path = os.path.splitext(arquivo.local_path)[0]
-                        with zipfile.ZipFile(arquivo.local_path, 'r') as zip_ref:
-                            zip_ref.extractall(extract_path)
+                        with concurrent.futures.ProcessPoolExecutor(max_workers=1) as proc_exec:
+                            proc_exec.submit(_extrair_zip_proc, arquivo.local_path, extract_path).result()
                         self.callbacks.get('update_status')(arquivo.id, "✅ Extraído", "#28a745", "#242424", False, True, False, False, "")
                     except Exception as e:
                         logger.error(f"Erro ao extrair zip {nome_arquivo}: {e}")

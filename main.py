@@ -1,5 +1,6 @@
 from ui import AppUI
 from utils import logger
+import multiprocessing
 import sys
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -11,6 +12,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = handle_exception
 
 def main():
+    multiprocessing.freeze_support()
     logger.info("Iniciando Google Drive Downloader Pro...")
     try:
         app = AppUI()

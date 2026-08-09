@@ -10,7 +10,7 @@ def setup_logger(log_file="app.log"):
     if not logger.handlers:
         # File handler (10 MB max size, keep 3 backups)
         fh = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=3, encoding="utf-8")
-        fh.setLevel(logging.DEBUG)
+        fh.setLevel(logging.INFO)
         
         # Console handler
         ch = logging.StreamHandler()

@@ -177,7 +177,7 @@ class AppUI(ctk.CTk):
         self.file_labels = {} 
         self.gerar_relatorio_ativo = ctk.BooleanVar(value=False)
         self.extrair_zip_var = ctk.BooleanVar(value=False)
-        self.max_workers = 1
+        self.max_workers = 10
         self.settings_window = None
         
         # Init Core
