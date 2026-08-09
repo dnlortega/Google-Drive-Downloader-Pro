@@ -37,7 +37,7 @@ class AppUI(ctk.CTk):
         self.protocol('WM_DELETE_WINDOW', self.hide_window)
         
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(6, weight=1)
+        self.grid_rowconfigure(7, weight=1)
 
         self.title_label = ctk.CTkLabel(self, text="Google Drive Downloader Pro", font=ctk.CTkFont(size=26, weight="bold"))
         self.title_label.grid(row=0, column=0, padx=20, pady=(20, 5))
@@ -199,17 +199,16 @@ class AppUI(ctk.CTk):
         self.last_global_bytes = 0
         
         # Monitor do Sistema (Rodapé)
-        self.sys_monitor_frame = ctk.CTkFrame(self, height=20, fg_color="transparent")
-        self.sys_monitor_frame.grid(row=10, column=0, padx=20, pady=(0, 5), sticky="ew")
+        self.actions_frame.grid_columnconfigure(2, weight=1)
         
-        self.lbl_gpu = ctk.CTkLabel(self.sys_monitor_frame, text="App GPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
-        self.lbl_gpu.pack(side="right", padx=10)
+        self.lbl_gpu = ctk.CTkLabel(self.actions_frame, text="App GPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_gpu.grid(row=0, column=5, padx=10, sticky="e")
 
-        self.lbl_cpu = ctk.CTkLabel(self.sys_monitor_frame, text="App CPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
-        self.lbl_cpu.pack(side="right", padx=10)
+        self.lbl_cpu = ctk.CTkLabel(self.actions_frame, text="App CPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_cpu.grid(row=0, column=4, padx=10, sticky="e")
         
-        self.lbl_ram = ctk.CTkLabel(self.sys_monitor_frame, text="App RAM: -- MB", font=ctk.CTkFont(size=11), text_color="gray")
-        self.lbl_ram.pack(side="right", padx=10)
+        self.lbl_ram = ctk.CTkLabel(self.actions_frame, text="App RAM: -- MB", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_ram.grid(row=0, column=3, padx=10, sticky="e")
         
         self.current_process = psutil.Process(os.getpid())
         self.current_process.cpu_percent() # Primeira chamada para calibrar o psutil
