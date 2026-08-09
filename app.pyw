@@ -216,7 +216,7 @@ class App(ctk.CTk):
         self.ui_rendered = 0
         self.global_updater_running = False
         
-        self.max_workers = 10
+        self.max_workers = 1
         self.gerar_relatorio_ativo = ctk.BooleanVar(value=True)
         self.extrair_zip_var = ctk.BooleanVar(value=True)
         self.settings_window = None
