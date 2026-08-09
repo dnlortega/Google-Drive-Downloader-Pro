@@ -96,7 +96,7 @@ class AppUI(ctk.CTk):
         self.info_label.grid(row=5, column=0, padx=20, pady=10)
 
         self.actions_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.actions_frame.grid(row=6, column=0, padx=20, pady=(0, 10))
+        self.actions_frame.grid(row=6, column=0, padx=20, pady=(0, 10), sticky="ew")
         
         self.open_folder_btn = ctk.CTkButton(self.actions_frame, text="📂", command=self.abrir_pasta, fg_color="#6c757d", hover_color="#5a6268", width=40, font=ctk.CTkFont(size=18))
         self.open_folder_btn.grid(row=0, column=0, padx=10)
@@ -220,14 +220,15 @@ class AppUI(ctk.CTk):
     def update_sys_monitor(self):
         try:
             # Consumo exclusivo deste programa
-            cpu = self.current_process.cpu_percent() / psutil.cpu_count()
+            cores = psutil.cpu_count() or 1
+            cpu = self.current_process.cpu_percent() / cores
             ram_mb = self.current_process.memory_info().rss / (1024 * 1024)
             
             self.lbl_cpu.configure(text=f"App CPU: {cpu:.1f}%")
             self.lbl_ram.configure(text=f"App RAM: {ram_mb:.1f} MB")
             self.lbl_gpu.configure(text="App GPU: 0%") # Tkinter não possui renderização por GPU
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Erro no monitor de sistema: {e}")
         self.after(2000, self.update_sys_monitor)
 
     def hide_window(self):
