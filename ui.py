@@ -13,6 +13,7 @@ from plyer import notification
 from PIL import Image
 import pystray
 from pystray import MenuItem as item
+import psutil
 
 from downloader import DownloaderCore
 from utils import logger, format_time
@@ -197,7 +198,29 @@ class AppUI(ctk.CTk):
         self.last_global_time = 0
         self.last_global_bytes = 0
         
+        # Monitor do Sistema (Rodapé)
+        self.sys_monitor_frame = ctk.CTkFrame(self, height=20, fg_color="transparent")
+        self.sys_monitor_frame.grid(row=10, column=0, padx=20, pady=(0, 5), sticky="ew")
+        
+        self.lbl_cpu = ctk.CTkLabel(self.sys_monitor_frame, text="CPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_cpu.pack(side="right", padx=10)
+        
+        self.lbl_ram = ctk.CTkLabel(self.sys_monitor_frame, text="RAM: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_ram.pack(side="right", padx=10)
+        
+        self.update_sys_monitor()
+        
         self.tray_icon = None
+
+    def update_sys_monitor(self):
+        try:
+            cpu = psutil.cpu_percent()
+            ram = psutil.virtual_memory().percent
+            self.lbl_cpu.configure(text=f"CPU: {cpu}%")
+            self.lbl_ram.configure(text=f"RAM: {ram}%")
+        except:
+            pass
+        self.after(2000, self.update_sys_monitor)
 
     def hide_window(self):
         self.withdraw()
