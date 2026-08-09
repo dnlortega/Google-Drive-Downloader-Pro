@@ -202,11 +202,17 @@ class AppUI(ctk.CTk):
         self.sys_monitor_frame = ctk.CTkFrame(self, height=20, fg_color="transparent")
         self.sys_monitor_frame.grid(row=10, column=0, padx=20, pady=(0, 5), sticky="ew")
         
-        self.lbl_cpu = ctk.CTkLabel(self.sys_monitor_frame, text="CPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_gpu = ctk.CTkLabel(self.sys_monitor_frame, text="App GPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_gpu.pack(side="right", padx=10)
+
+        self.lbl_cpu = ctk.CTkLabel(self.sys_monitor_frame, text="App CPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
         self.lbl_cpu.pack(side="right", padx=10)
         
-        self.lbl_ram = ctk.CTkLabel(self.sys_monitor_frame, text="RAM: --%", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_ram = ctk.CTkLabel(self.sys_monitor_frame, text="App RAM: -- MB", font=ctk.CTkFont(size=11), text_color="gray")
         self.lbl_ram.pack(side="right", padx=10)
+        
+        self.current_process = psutil.Process(os.getpid())
+        self.current_process.cpu_percent() # Primeira chamada para calibrar o psutil
         
         self.update_sys_monitor()
         
@@ -214,10 +220,13 @@ class AppUI(ctk.CTk):
 
     def update_sys_monitor(self):
         try:
-            cpu = psutil.cpu_percent()
-            ram = psutil.virtual_memory().percent
-            self.lbl_cpu.configure(text=f"CPU: {cpu}%")
-            self.lbl_ram.configure(text=f"RAM: {ram}%")
+            # Consumo exclusivo deste programa
+            cpu = self.current_process.cpu_percent() / psutil.cpu_count()
+            ram_mb = self.current_process.memory_info().rss / (1024 * 1024)
+            
+            self.lbl_cpu.configure(text=f"App CPU: {cpu:.1f}%")
+            self.lbl_ram.configure(text=f"App RAM: {ram_mb:.1f} MB")
+            self.lbl_gpu.configure(text="App GPU: 0%") # Tkinter não possui renderização por GPU
         except:
             pass
         self.after(2000, self.update_sys_monitor)
