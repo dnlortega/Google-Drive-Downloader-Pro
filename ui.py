@@ -178,12 +178,14 @@ class AppUI(ctk.CTk):
         self.settings_window = None
         
         # Init Core
+        self.safe_analyze_finish = lambda *args: self.after(0, self.on_analyze_finish, *args)
+        
         callbacks = {
-            'update_status': self.atualizar_status,
-            'bulk_add': self.bulk_add_rows,
-            'on_analyze_finish': self.on_analyze_finish,
-            'on_download_progress': self.on_download_progress,
-            'on_download_finish': self.on_download_finish
+            'update_status': lambda *args: self.after(0, self.atualizar_status, *args),
+            'bulk_add': lambda *args: self.after(0, self.bulk_add_rows, *args),
+            'on_analyze_finish': self.safe_analyze_finish,
+            'on_download_progress': lambda *args: self.after(0, self.on_download_progress, *args),
+            'on_download_finish': lambda *args: self.after(0, self.on_download_finish, *args)
         }
         self.core = DownloaderCore(callbacks)
         self.core.config(self.max_workers, self.extrair_zip_var.get(), self.pasta_destino)
@@ -404,13 +406,13 @@ class AppUI(ctk.CTk):
         
         if auto_download:
             # Sobrescreve callback de finish para iniciar download direto se sucesso
-            orig = self.core.callbacks['on_analyze_finish']
             def hooked(arquivos, msg, color, has_files):
-                orig(arquivos, msg, color, has_files)
-                if has_files: self.comecar_download()
+                self.after(0, self.on_analyze_finish, arquivos, msg, color, has_files)
+                if has_files: 
+                    self.after(0, self.comecar_download)
             self.core.callbacks['on_analyze_finish'] = hooked
         else:
-            self.core.callbacks['on_analyze_finish'] = self.on_analyze_finish
+            self.core.callbacks['on_analyze_finish'] = self.safe_analyze_finish
 
         self.core.start_analysis(url, self.filtro_var.get(), self.ordem_var.get())
 
