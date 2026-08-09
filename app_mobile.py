@@ -159,6 +159,24 @@ class DriveDownloaderMobile:
         self.ui_rendered = 0
         self.global_updater_running = False
         
+        # Footer
+        self.footer = ft.Row([
+            ft.Text("Desenvolvido por Daniel Ortega", color=ft.colors.GREY_500, size=12, italic=True),
+            ft.Row([
+                ft.Text("LinkedIn", color=ft.colors.BLUE_400, size=12, weight=ft.FontWeight.BOLD, tooltip="https://www.linkedin.com/in/daniel-op/"),
+                ft.Text("GitHub", color=ft.colors.BLUE_400, size=12, weight=ft.FontWeight.BOLD, tooltip="https://github.com/dnlortega")
+            ])
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        
+        # Faz os textos serem clicáveis associando a função (Em Flet TextButton é mais limpo, mas Text com on_click ou InkWell funciona. Vamos usar TextButton para links simples)
+        self.footer = ft.Row([
+            ft.Text("Desenvolvido por Daniel Ortega", color=ft.colors.GREY_500, size=12, italic=True),
+            ft.Row([
+                ft.TextButton("LinkedIn", on_click=lambda e: self.page.launch_url("https://www.linkedin.com/in/daniel-op/"), style=ft.ButtonStyle(color=ft.colors.BLUE_400)),
+                ft.TextButton("GitHub", on_click=lambda e: self.page.launch_url("https://github.com/dnlortega"), style=ft.ButtonStyle(color=ft.colors.BLUE_400))
+            ], spacing=0)
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
         # Adicionando na tela
         self.page.add(
             folder_card,
@@ -166,7 +184,8 @@ class DriveDownloaderMobile:
             self.info_label,
             self.tabs,
             self.progress_bar,
-            ft.Row([self.progress_text, self.global_stats_text], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+            ft.Row([self.progress_text, self.global_stats_text], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            self.footer
         )
 
     def show_snackbar(self, msg, color=ft.colors.GREEN):
