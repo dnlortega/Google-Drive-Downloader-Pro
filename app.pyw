@@ -217,8 +217,8 @@ class App(ctk.CTk):
         self.global_updater_running = False
         
         self.max_workers = 1
-        self.gerar_relatorio_ativo = ctk.BooleanVar(value=True)
-        self.extrair_zip_var = ctk.BooleanVar(value=True)
+        self.gerar_relatorio_ativo = ctk.BooleanVar(value=False)
+        self.extrair_zip_var = ctk.BooleanVar(value=False)
         self.settings_window = None
         
         # Fecha o splash screen do PyInstaller se estiver rodando o executável
