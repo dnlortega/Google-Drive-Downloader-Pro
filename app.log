@@ -241,3 +241,4 @@
 2026-08-11 08:53:31,577 - WARNING - downloader - Tentativa 3 para Casamento JAQUELINE E DANIEL-99.jpg
 2026-08-11 08:53:47,247 - ERROR - downloader - Falha no download Casamento JAQUELINE E DANIEL-99.jpg: Failed to retrieve file url:  	Cannot retrieve the public link of the file. You may need to change 	the permission to 'Anyone with the link', or have had many accesses. 	Check FAQ in https://github.com/wkentaro/gdown?tab=readme-ov-file#faq.  You may still be able to access the file from the browser:  	https://drive.google.com/uc?id=14oDVYbQl9q8ngvgp2p6YrYPyPBtL0SRu  but Gdown can't. Please check connections and permissions.
 2026-08-11 08:53:47,296 - INFO - downloader - Fila de downloads finalizada.
+2026-08-11 09:04:07,775 - INFO - app - Iniciando Google Drive Downloader Pro...
