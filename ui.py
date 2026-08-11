@@ -15,13 +15,17 @@ import pystray
 from pystray import MenuItem as item
 import psutil
 
+import database
 from downloader import DownloaderCore
 from utils import logger, format_time
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-HISTORY_FILE = "history.json"
+ctk.set_default_color_theme("blue")
+
+# Inicializa banco de dados e migra se necessario
+database.init_db()
 
 class AppUI(ctk.CTk):
     def __init__(self):
@@ -62,7 +66,10 @@ class AppUI(ctk.CTk):
         self.folder_btn.grid(row=0, column=2, padx=5, pady=15)
         
         self.settings_btn = ctk.CTkButton(self.folder_frame, text="⚙️", command=self.abrir_configuracoes, width=40, fg_color="#4b5563", hover_color="#374151", font=ctk.CTkFont(size=18))
-        self.settings_btn.grid(row=0, column=3, padx=(5, 15), pady=15)
+        self.settings_btn.grid(row=0, column=3, padx=5, pady=15)
+        
+        self.login_btn = ctk.CTkButton(self.folder_frame, text="Google Login", command=self.login_google, width=120, fg_color="#ea4335", hover_color="#d33426", font=ctk.CTkFont(weight="bold"))
+        self.login_btn.grid(row=0, column=4, padx=(5, 15), pady=15)
 
         self.input_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=12)
         self.input_frame.grid(row=3, column=0, padx=25, pady=(0, 10), sticky="ew")
@@ -491,21 +498,23 @@ class AppUI(ctk.CTk):
         
         self.core.start_download()
 
+    def login_google(self):
+        self.login_btn.configure(text="Autenticando...", state="disabled")
+        self.update()
+        if self.core.auth_google():
+            self.login_btn.configure(text="Logado ✅", fg_color="#28a745", hover_color="#218838")
+            CTkMessagebox(title="Sucesso", message="Autenticação com Google bem-sucedida!", icon="check")
+        else:
+            self.login_btn.configure(text="Google Login", state="normal")
+            CTkMessagebox(title="Erro", message="Falha ao autenticar. Verifique o credentials.json", icon="cancel")
+
     def carregar_historico(self):
-        if os.path.exists(HISTORY_FILE):
-            try:
-                with open(HISTORY_FILE, "r") as f: return json.load(f)
-            except: pass
-        return []
+        return database.get_recent_urls(5)
 
     def salvar_historico(self, url):
-        if url in self.historico: self.historico.remove(url)
-        self.historico.insert(0, url)
-        self.historico = self.historico[:5]
+        database.add_to_history(url, "Desconhecido", "", "Analisado", "0 B")
+        self.historico = database.get_recent_urls(5)
         self.url_entry.configure(values=self.historico)
-        try:
-            with open(HISTORY_FILE, "w") as f: json.dump(self.historico, f)
-        except: pass
 
     def escolher_pasta(self):
         folder = filedialog.askdirectory(initialdir=self.pasta_destino)

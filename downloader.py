@@ -5,6 +5,31 @@ import zipfile
 import concurrent.futures
 import gdown
 from utils import logger
+import io
+import os.path
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+
+SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+
+def get_drive_service():
+    creds = None
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        elif os.path.exists('credentials.json'):
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        else:
+            return None
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+    return build('drive', 'v3', credentials=creds)
 
 def _extrair_zip_proc(filepath, extract_path):
     with zipfile.ZipFile(filepath, 'r') as zip_ref:
@@ -39,6 +64,15 @@ class DownloaderCore:
         self.max_workers = 1
         self.extrair_zip = False
         self.pasta_destino = ""
+        self.drive_service = None
+
+    def auth_google(self):
+        try:
+            self.drive_service = get_drive_service()
+            return self.drive_service is not None
+        except Exception as e:
+            logger.error(f"Erro na autenticacao do google: {e}")
+            return False
 
     def config(self, max_workers, extrair_zip, pasta_destino):
         self.max_workers = max_workers
@@ -79,12 +113,30 @@ class DownloaderCore:
         os.makedirs(self.pasta_destino, exist_ok=True)
         try:
             url_lower = url.lower()
-            if "folder" in url_lower or "drive.google.com/drive/folders/" in url_lower:
-                arquivos_brutos = gdown.download_folder(url, output=self.pasta_destino, quiet=True, skip_download=True)
-            else:
-                res = gdown.download(url, output=self.pasta_destino, quiet=True, skip_download=True)
-                file_id = url.split("id=")[1].split("&")[0] if "id=" in url else url.split("/d/")[1].split("/")[0] if "/d/" in url else url
-                arquivos_brutos = [SingleFile(file_id, getattr(res, 'path', str(res) if res else None))] if res else []
+            file_id = url.split("id=")[1].split("&")[0] if "id=" in url else url.split("/d/")[1].split("/")[0] if "/d/" in url else url
+            arquivos_brutos = []
+
+            # Se o usuario estiver logado, tenta pegar os dados oficiais pela API
+            if self.drive_service:
+                try:
+                    file_metadata = self.drive_service.files().get(fileId=file_id, fields="id, name, mimeType").execute()
+                    if file_metadata['mimeType'] == 'application/vnd.google-apps.folder':
+                        # Simplificação: listar arquivos da pasta via API não implementada por completo, falha graciosa pro gdown
+                        logger.info("Pasta privada via API requer mais lógica. Tentando listar via gdown...")
+                        arquivos_brutos = gdown.download_folder(url, output=self.pasta_destino, quiet=True, skip_download=True)
+                    else:
+                        local_path = os.path.join(self.pasta_destino, file_metadata['name'])
+                        arquivos_brutos = [SingleFile(file_metadata['id'], local_path)]
+                except Exception as api_e:
+                    logger.warning(f"Falha ao ler via API (talvez falta de permissão ou id inválido): {api_e}")
+            
+            # Fallback para gdown se a API nao encontrou
+            if not arquivos_brutos:
+                if "folder" in url_lower or "drive.google.com/drive/folders/" in url_lower:
+                    arquivos_brutos = gdown.download_folder(url, output=self.pasta_destino, quiet=True, skip_download=True)
+                else:
+                    res = gdown.download(url, output=self.pasta_destino, quiet=True, skip_download=True)
+                    arquivos_brutos = [SingleFile(file_id, getattr(res, 'path', str(res) if res else None))] if res else []
                 
             filtrados = self._filtrar_arquivos(arquivos_brutos, filtro)
             
@@ -236,7 +288,26 @@ class DownloaderCore:
                     time.sleep(3) 
                     
                 self.callbacks.get('update_status')(arquivo.id, "🔄 Baixando...", "#00ffff", "#1f538d", True, False, False, False, "")
-                gdown.download(id=arquivo.id, url=arquivo.id if "http" in arquivo.id else None, output=arquivo.local_path, quiet=True, progress=custom_progress, resume=True)
+                
+                # Tenta baixar pela API oficial primeiro se disponivel
+                baixou_pela_api = False
+                if self.drive_service:
+                    try:
+                        request = self.drive_service.files().get_media(fileId=arquivo.id)
+                        fh = io.FileIO(arquivo.local_path, 'wb')
+                        downloader = MediaIoBaseDownload(fh, request)
+                        done = False
+                        while done is False:
+                            status, done = downloader.next_chunk()
+                            if status:
+                                custom_progress(status.resumable_progress, status.total_size)
+                        baixou_pela_api = True
+                    except Exception as api_e:
+                        logger.warning(f"Download via API falhou, caindo para gdown: {api_e}")
+                        baixou_pela_api = False
+                        
+                if not baixou_pela_api:
+                    gdown.download(id=arquivo.id, url=arquivo.id if "http" in arquivo.id else None, output=arquivo.local_path, quiet=True, progress=custom_progress, resume=True)
                 
                 self.callbacks.get('update_status')(arquivo.id, "✅ Concluído", "#28a745", "#242424", False, True, False, False, "")
                 self.log_entries.append(f"SUCESSO: {nome_arquivo}")
