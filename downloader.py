@@ -137,6 +137,29 @@ class DownloaderCore:
             logger.error(f"Erro na análise: {e}")
             self.callbacks.get('on_analyze_finish', lambda *args: None)([], f"❌ Erro na análise:\n{e}", "#dc3545", False)
 
+    def update_queue_order(self, ordered_ids):
+        with self.lock:
+            id_to_file = {f.id: f for f in self.arquivos_para_baixar}
+            nova_lista = []
+            for f_id in ordered_ids:
+                if f_id in id_to_file:
+                    nova_lista.append(id_to_file.pop(f_id))
+            for f in id_to_file.values():
+                nova_lista.append(f)
+            self.arquivos_para_baixar = nova_lista
+
+    def remove_from_queue(self, ids_to_remove):
+        with self.lock:
+            ids_set = set(ids_to_remove)
+            self.arquivos_para_baixar = [f for f in self.arquivos_para_baixar if f.id not in ids_set]
+
+    def retry_failed(self):
+        with self.lock:
+            # Mantém apenas os arquivos que ainda não foram concluídos
+            self.arquivos_para_baixar = [f for f in self.arquivos_para_baixar if f.id not in self.completed_ids]
+            self.archived_count = 0
+            self.log_entries = []
+
     def start_download(self):
         self.is_downloading = True
         self.cancel_event.clear()

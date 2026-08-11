@@ -104,6 +104,9 @@ class AppUI(ctk.CTk):
         self.clear_folder_btn = ctk.CTkButton(self.actions_frame, text="🗑️", command=self.limpar_pasta, fg_color="#dc3545", hover_color="#c82333", width=40, font=ctk.CTkFont(size=18))
         self.clear_folder_btn.grid(row=0, column=1, padx=10)
 
+        self.restart_failed_btn = ctk.CTkButton(self.actions_frame, text="🔄", command=self.reiniciar_falhas, fg_color="#ffc107", hover_color="#e0a800", width=40, text_color="black", font=ctk.CTkFont(size=18))
+        self.restart_failed_btn.grid(row=0, column=2, padx=10)
+
         # Dados da Fila Virtual
         self.queue_data = [] # Lista de (file_id, filename, filepath, status, size, progresso)
         self.queue_page = 0
@@ -149,6 +152,16 @@ class AppUI(ctk.CTk):
             scrollbar.pack(side="right", fill="y")
             tree.bind("<Double-1>", self.on_tree_double_click)
             self.trees[key] = tree
+            
+            if key == "queue":
+                self.queue_menu = tk.Menu(self, tearoff=0, bg="#2b2b2b", fg="white", activebackground="#3484F0")
+                self.queue_menu.add_command(label="Mover para o Topo", command=lambda: self.reordenar_fila("topo"))
+                self.queue_menu.add_command(label="Mover para Cima", command=lambda: self.reordenar_fila("cima"))
+                self.queue_menu.add_command(label="Mover para Baixo", command=lambda: self.reordenar_fila("baixo"))
+                self.queue_menu.add_command(label="Mover para o Fim", command=lambda: self.reordenar_fila("fim"))
+                self.queue_menu.add_separator()
+                self.queue_menu.add_command(label="Excluir Selecionados", command=self.excluir_da_fila)
+                tree.bind("<Button-3>", self.mostrar_menu_fila)
             
         # Paginacao para a fila
         self.pagination_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -199,16 +212,16 @@ class AppUI(ctk.CTk):
         self.last_global_bytes = 0
         
         # Monitor do Sistema (Rodapé)
-        self.actions_frame.grid_columnconfigure(2, weight=1)
+        self.actions_frame.grid_columnconfigure(3, weight=1)
         
         self.lbl_gpu = ctk.CTkLabel(self.actions_frame, text="App GPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
-        self.lbl_gpu.grid(row=0, column=5, padx=10, sticky="e")
+        self.lbl_gpu.grid(row=0, column=6, padx=10, sticky="e")
 
         self.lbl_cpu = ctk.CTkLabel(self.actions_frame, text="App CPU: --%", font=ctk.CTkFont(size=11), text_color="gray")
-        self.lbl_cpu.grid(row=0, column=4, padx=10, sticky="e")
+        self.lbl_cpu.grid(row=0, column=5, padx=10, sticky="e")
         
         self.lbl_ram = ctk.CTkLabel(self.actions_frame, text="App RAM: -- MB", font=ctk.CTkFont(size=11), text_color="gray")
-        self.lbl_ram.grid(row=0, column=3, padx=10, sticky="e")
+        self.lbl_ram.grid(row=0, column=4, padx=10, sticky="e")
         
         self.current_process = psutil.Process(os.getpid())
         self.current_process.cpu_percent() # Primeira chamada para calibrar o psutil
@@ -575,3 +588,120 @@ class AppUI(ctk.CTk):
             else:
                 import webbrowser
                 webbrowser.open(f"https://drive.google.com/uc?export=download&id={file_id}")
+
+    def mostrar_menu_fila(self, event):
+        try:
+            # Seleciona o item onde o usuario clicou (opcional, melhora a UX)
+            iid = self.trees["queue"].identify_row(event.y)
+            if iid:
+                # Se não estiver nos selecionados, limpa seleção e seleciona ele
+                if iid not in self.trees["queue"].selection():
+                    self.trees["queue"].selection_set(iid)
+                    
+            if self.trees["queue"].selection():
+                self.queue_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.queue_menu.grab_release()
+
+    def excluir_da_fila(self):
+        tree = self.trees["queue"]
+        selected = tree.selection()
+        if not selected: return
+        
+        ids_to_remove = []
+        for item in selected:
+            file_id = tree.item(item, "values")[0]
+            ids_to_remove.append(file_id)
+            if file_id in self.file_labels:
+                del self.file_labels[file_id]
+                
+        # Atualizar Fila Virtual
+        self.queue_data = [item for item in self.queue_data if item[0] not in ids_to_remove]
+        self.counts["queue"] = len(self.queue_data)
+        self.update_tabs()
+        
+        # Corrigir paginacao se remover itens
+        max_page = max(0, (len(self.queue_data) - 1)) // self.queue_page_size
+        if self.queue_page > max_page:
+            self.queue_page = max_page
+            
+        self.render_queue_page()
+        
+        # Remover do Core
+        self.core.remove_from_queue(ids_to_remove)
+        if hasattr(self.core, 'arquivos_para_baixar'):
+            self.progress_label.configure(text=f"Progresso Total: {self.core.archived_count} / {len(self.core.arquivos_para_baixar)}")
+
+    def reordenar_fila(self, acao):
+        tree = self.trees["queue"]
+        selected = tree.selection()
+        if not selected: return
+        
+        selected_ids = [tree.item(i, "values")[0] for i in selected]
+        
+        indices = []
+        for i, item in enumerate(self.queue_data):
+            if item[0] in selected_ids:
+                indices.append(i)
+                
+        if not indices: return
+        itens_selecionados = [self.queue_data[i] for i in indices]
+        
+        for i in reversed(indices):
+            self.queue_data.pop(i)
+            
+        if acao == "topo":
+            self.queue_data = itens_selecionados + self.queue_data
+        elif acao == "fim":
+            self.queue_data = self.queue_data + itens_selecionados
+        elif acao == "cima":
+            min_idx = min(indices)
+            novo_idx = max(0, min_idx - 1)
+            for item in reversed(itens_selecionados):
+                self.queue_data.insert(novo_idx, item)
+        elif acao == "baixo":
+            max_idx = max(indices)
+            novo_idx = min(len(self.queue_data), max_idx + 1 - len(itens_selecionados) + 1)
+            for item in reversed(itens_selecionados):
+                self.queue_data.insert(novo_idx, item)
+                
+        self.render_queue_page()
+        
+        # Selecionar itens novamente
+        for iid in tree.get_children():
+            if tree.item(iid, "values")[0] in selected_ids:
+                tree.selection_add(iid)
+                
+        self.sincronizar_fila_core()
+        
+    def sincronizar_fila_core(self):
+        ordered_ids = [item[0] for item in self.queue_data]
+        self.core.update_queue_order(ordered_ids)
+
+    def reiniciar_falhas(self):
+        if self.counts["failed"] == 0:
+            CTkMessagebox(title="Aviso", message="Não há falhas para reiniciar.", icon="info")
+            return
+            
+        # Limpa arvore de falhas
+        for item in self.trees["failed"].get_children():
+            self.trees["failed"].delete(item)
+        self.counts["failed"] = 0
+        
+        self.core.retry_failed()
+        
+        # Reconstroi fila virtual da interface com base no Core atual
+        self.queue_data = []
+        self.counts["queue"] = 0
+        for arquivo in self.core.arquivos_para_baixar:
+            nome_arquivo = os.path.basename(arquivo.local_path) if getattr(arquivo, 'local_path', None) else arquivo.id
+            tamanho = self.core._format_size(os.path.getsize(arquivo.local_path)) if os.path.exists(arquivo.local_path) else "Desconhecido"
+            self.queue_data.append((arquivo.id, nome_arquivo, arquivo.local_path, "⏳ Aguardando", tamanho, "0%"))
+            self.counts["queue"] += 1
+            
+        self.queue_page = 0
+        self.update_tabs()
+        self.render_queue_page()
+        
+        # Inicia download
+        self.comecar_download()
